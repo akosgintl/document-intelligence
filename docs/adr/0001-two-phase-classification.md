@@ -1,0 +1,3 @@
+# Two-phase classification: page-level for splitting, document-level for schema binding
+
+Splitting groups Pages by Document Type, not exact Schema version — so per-page classification alone can't be trusted to pick the right Schema version for extraction (a real multi-page Document could have pages resolve to different versions of the same type). Rather than arbitrarily taking the latest version seen among a Document's pages, we re-run classification once per Document (all its Pages together) after grouping, to settle one authoritative Schema version with real model reasoning behind it. This costs one extra model call per Document but avoids masking real classification disagreement behind a silent tiebreak.
