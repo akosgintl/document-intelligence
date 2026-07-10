@@ -1,0 +1,7 @@
+# Confidence-gated Review is a peer terminal status, not a Job-blocking state
+
+Introducing Confidence and Review (a Document whose Classification or Extraction Confidence falls below its Schema's Confidence Threshold lands in `classification_needs_review`/`extraction_needs_review` instead of the usual terminal status) raised a choice: should a Job wait for a human Review to resolve before reaching `complete`, or should the review statuses count as terminal in their own right so the Job completes regardless? We chose the latter — `classification_needs_review`/`extraction_needs_review` are terminal, so `complete` continues to mean only "the automated pipeline is done with every Document," never gated on human response time. This preserves the existing rule that Job status never encodes success/failure (callers already read per-Document status for that) and avoids a Job hanging indefinitely on review latency. The trade-off: `complete` no longer implies "nothing here will ever change" — a `classification_needs_review`/`extraction_needs_review` Document can still be moved onward by a later Review, so "terminal" now means "the automated pipeline is done with it," not "final."
+
+## Considered Options
+
+- **Blocking pre-terminal state** (rejected): `needs_review` is non-terminal; `complete` only fires once every Document, including reviewed ones, reaches a true terminal state. More literal reading of "complete means done," but couples Job completion to how fast a human acts on review — a Job could sit in `processing` for hours or days.
