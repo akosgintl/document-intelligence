@@ -1,6 +1,8 @@
+import time
 from collections.abc import Sequence
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
+from document_intelligence.model_provider.recording import ModelCallType, report_model_call
 from document_intelligence.model_provider.types import (
     DocumentClassification,
     DocumentTypeSchema,
@@ -42,10 +44,14 @@ class FakeModelProvider:
         page_classifications: Sequence[PageClassification] = (),
         document_classifications: Sequence[DocumentClassification] = (),
         extractions: Sequence[ExtractionResult] = (),
+        input_tokens: int = 100,
+        output_tokens: int = 20,
     ) -> None:
         self._page_classifications = _Script(page_classifications)
         self._document_classifications = _Script(document_classifications)
         self._extractions = _Script(extractions)
+        self._input_tokens = input_tokens
+        self._output_tokens = output_tokens
 
         self.page_classification_calls: list[tuple[Page, tuple[DocumentTypeSchema, ...]]] = []
         self.document_classification_calls: list[
@@ -57,13 +63,29 @@ class FakeModelProvider:
         self, page: Page, document_types: Sequence[DocumentTypeSchema]
     ) -> PageClassification:
         self.page_classification_calls.append((page, tuple(document_types)))
-        return self._page_classifications.next("page classification")
+        start = time.monotonic()
+        result = self._page_classifications.next("page classification")
+        await self._record(
+            call_type="page_classification",
+            prompt=f"classify 1 page against {len(document_types)} Document Type(s)",
+            result=result,
+            start=start,
+        )
+        return result
 
     async def classify_document(
         self, pages: Sequence[Page], document_types: Sequence[DocumentTypeSchema]
     ) -> DocumentClassification:
         self.document_classification_calls.append((tuple(pages), tuple(document_types)))
-        return self._document_classifications.next("document classification")
+        start = time.monotonic()
+        result = self._document_classifications.next("document classification")
+        await self._record(
+            call_type="document_classification",
+            prompt=f"classify {len(pages)} page(s) against {len(document_types)} Document Type(s)",
+            result=result,
+            start=start,
+        )
+        return result
 
     async def extract(
         self,
@@ -73,4 +95,22 @@ class FakeModelProvider:
         validation_errors: Sequence[str] | None = None,
     ) -> ExtractionResult:
         self.extraction_calls.append((tuple(pages), document_type, tuple(validation_errors or ())))
-        return self._extractions.next("extraction")
+        start = time.monotonic()
+        result = self._extractions.next("extraction")
+        await self._record(
+            call_type="extraction",
+            prompt=f"extract {document_type.name} fields from {len(pages)} page(s)",
+            result=result,
+            start=start,
+        )
+        return result
+
+    async def _record(self, *, call_type: ModelCallType, prompt: str, result: Any, start: float) -> None:
+        await report_model_call(
+            call_type=call_type,
+            prompt=prompt,
+            response=repr(result),
+            input_tokens=self._input_tokens,
+            output_tokens=self._output_tokens,
+            latency_ms=(time.monotonic() - start) * 1000,
+        )

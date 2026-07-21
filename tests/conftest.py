@@ -19,7 +19,10 @@ async def db_session_factory() -> AsyncIterator[async_sessionmaker]:
     finally:
         async with engine.begin() as conn:
             await conn.execute(
-                text("TRUNCATE fields, pages, documents, jobs, submissions RESTART IDENTITY CASCADE")
+                text(
+                    "TRUNCATE fields, pages, model_calls, documents, jobs, submissions "
+                    "RESTART IDENTITY CASCADE"
+                )
             )
         await engine.dispose()
 

@@ -1,9 +1,12 @@
 import base64
+import json
+import time
 from collections.abc import Sequence
 from typing import Any
 
 import anthropic
 
+from document_intelligence.model_provider.recording import ModelCallType, report_model_call
 from document_intelligence.model_provider.types import (
     DocumentClassification,
     DocumentTypeSchema,
@@ -35,7 +38,10 @@ class AnthropicModelProvider:
     ) -> PageClassification:
         tool = _page_classification_tool(document_types)
         result = await self._call_tool(
-            pages=[page], tool=tool, prompt=_page_classification_prompt(document_types)
+            pages=[page],
+            tool=tool,
+            prompt=_page_classification_prompt(document_types),
+            call_type="page_classification",
         )
         if not result.get("matched"):
             return PageClassification(document_type_name=None)
@@ -48,7 +54,10 @@ class AnthropicModelProvider:
     ) -> DocumentClassification:
         tool = _document_classification_tool(document_types)
         result = await self._call_tool(
-            pages=pages, tool=tool, prompt=_document_classification_prompt(document_types)
+            pages=pages,
+            tool=tool,
+            prompt=_document_classification_prompt(document_types),
+            call_type="document_classification",
         )
         if not result.get("matched"):
             return DocumentClassification(document_type_name=None, schema_version=None, confidence=None)
@@ -70,6 +79,7 @@ class AnthropicModelProvider:
             pages=pages,
             tool=tool,
             prompt=_extraction_prompt(document_type, validation_errors),
+            call_type="extraction",
         )
         fields = tuple(
             ExtractedField(
@@ -82,11 +92,17 @@ class AnthropicModelProvider:
         return ExtractionResult(fields=fields)
 
     async def _call_tool(
-        self, *, pages: Sequence[Page], tool: dict[str, Any], prompt: str
+        self,
+        *,
+        pages: Sequence[Page],
+        tool: dict[str, Any],
+        prompt: str,
+        call_type: ModelCallType,
     ) -> dict[str, Any]:
         content: list[dict[str, Any]] = [_image_block(page) for page in pages]
         content.append({"type": "text", "text": prompt})
 
+        start = time.monotonic()
         response = await self._client.messages.create(
             model=self._model,
             max_tokens=_MAX_TOKENS,
@@ -94,7 +110,18 @@ class AnthropicModelProvider:
             tool_choice={"type": "tool", "name": tool["name"]},
             messages=[{"role": "user", "content": content}],
         )
-        return _tool_input(response, tool["name"])
+        latency_ms = (time.monotonic() - start) * 1000
+
+        result = _tool_input(response, tool["name"])
+        await report_model_call(
+            call_type=call_type,
+            prompt=prompt,
+            response=json.dumps(result),
+            input_tokens=response.usage.input_tokens,
+            output_tokens=response.usage.output_tokens,
+            latency_ms=latency_ms,
+        )
+        return result
 
 
 def _image_block(page: Page) -> dict[str, Any]:

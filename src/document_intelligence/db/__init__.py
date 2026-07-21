@@ -5,6 +5,8 @@ from document_intelligence.db.models import (
     Field,
     Job,
     JobStatus,
+    ModelCall,
+    ModelCallType,
     Page,
     Submission,
 )
@@ -17,6 +19,8 @@ __all__ = [
     "Field",
     "Job",
     "JobStatus",
+    "ModelCall",
+    "ModelCallType",
     "Page",
     "Submission",
     "get_session",

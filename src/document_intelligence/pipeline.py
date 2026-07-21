@@ -9,7 +9,9 @@ from sqlalchemy.orm import selectinload
 
 from document_intelligence.db import Document, DocumentStatus, Field, Job, JobStatus, Page
 from document_intelligence.model_provider.protocol import ModelProvider
+from document_intelligence.model_provider.recording import current_model_call_recorder
 from document_intelligence.model_provider.types import Page as ProviderPage
+from document_intelligence.observability import PersistingModelCallRecorder
 from document_intelligence.rendering import render_single_page
 from document_intelligence.schema_registry import SchemaRegistry
 from document_intelligence.storage import get_object_bytes, put_object
@@ -45,59 +47,65 @@ async def process_job(deps: PipelineDeps, job_id: str) -> None:
             job.status = JobStatus.PROCESSING
             await session.commit()
 
-        submission = job.submission
-        raw_bytes = await get_object_bytes(
-            deps.s3_client, bucket=deps.bucket, key=submission.storage_key
+        recorder_token = current_model_call_recorder.set(
+            PersistingModelCallRecorder(session_factory=deps.session_factory, job_id=job.id)
         )
-        image_bytes, media_type = render_single_page(raw_bytes, submission.content_type)
+        try:
+            submission = job.submission
+            raw_bytes = await get_object_bytes(
+                deps.s3_client, bucket=deps.bucket, key=submission.storage_key
+            )
+            image_bytes, media_type = render_single_page(raw_bytes, submission.content_type)
 
-        page_key = f"submissions/{submission.id}/pages/1"
-        await put_object(
-            deps.s3_client,
-            bucket=deps.bucket,
-            key=page_key,
-            body=image_bytes,
-            content_type=media_type,
-        )
-
-        provider_page = ProviderPage(image_bytes=image_bytes, media_type=media_type)
-        document_types = deps.schema_registry.all_latest()
-
-        # Page-level classification runs even though grouping is a no-op for a single Page,
-        # to exercise the real two-phase shape from ADR-0001 (see #21).
-        await deps.model_provider.classify_page(provider_page, document_types)
-        document_classification = await deps.model_provider.classify_document(
-            [provider_page], document_types
-        )
-
-        document = Document(job=job)
-        session.add(document)
-
-        if document_classification.document_type_name is None:
-            document.status = DocumentStatus.UNCLASSIFIED
-        else:
-            document.status = DocumentStatus.CLASSIFIED
-            document.document_type_name = document_classification.document_type_name
-            document.schema_version = document_classification.schema_version
-            await _extract_and_validate(
-                session=session,
-                document=document,
-                provider_page=provider_page,
-                model_provider=deps.model_provider,
-                schema_registry=deps.schema_registry,
+            page_key = f"submissions/{submission.id}/pages/1"
+            await put_object(
+                deps.s3_client,
+                bucket=deps.bucket,
+                key=page_key,
+                body=image_bytes,
+                content_type=media_type,
             )
 
-        session.add(
-            Page(
-                document=document,
-                page_number=1,
-                storage_key=page_key,
-                media_type=media_type,
-            )
-        )
+            provider_page = ProviderPage(image_bytes=image_bytes, media_type=media_type)
+            document_types = deps.schema_registry.all_latest()
 
-        job.status = JobStatus.COMPLETE
-        await session.commit()
+            # Page-level classification runs even though grouping is a no-op for a single Page,
+            # to exercise the real two-phase shape from ADR-0001 (see #21).
+            await deps.model_provider.classify_page(provider_page, document_types)
+            document_classification = await deps.model_provider.classify_document(
+                [provider_page], document_types
+            )
+
+            document = Document(job=job)
+            session.add(document)
+
+            if document_classification.document_type_name is None:
+                document.status = DocumentStatus.UNCLASSIFIED
+            else:
+                document.status = DocumentStatus.CLASSIFIED
+                document.document_type_name = document_classification.document_type_name
+                document.schema_version = document_classification.schema_version
+                await _extract_and_validate(
+                    session=session,
+                    document=document,
+                    provider_page=provider_page,
+                    model_provider=deps.model_provider,
+                    schema_registry=deps.schema_registry,
+                )
+
+            session.add(
+                Page(
+                    document=document,
+                    page_number=1,
+                    storage_key=page_key,
+                    media_type=media_type,
+                )
+            )
+
+            job.status = JobStatus.COMPLETE
+            await session.commit()
+        finally:
+            current_model_call_recorder.reset(recorder_token)
 
 
 async def _extract_and_validate(

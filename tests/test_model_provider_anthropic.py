@@ -1,9 +1,15 @@
+import json
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 
 from document_intelligence.model_provider.anthropic_provider import AnthropicModelProvider
 from document_intelligence.model_provider.protocol import ModelProvider
+from document_intelligence.model_provider.recording import (
+    ModelCallRecord,
+    current_model_call_recorder,
+)
 from document_intelligence.model_provider.types import DocumentTypeSchema, Page
 
 INVOICE = DocumentTypeSchema(
@@ -24,13 +30,14 @@ RECEIPT = DocumentTypeSchema(
 PAGE = Page(image_bytes=b"\x89PNG-fake-bytes", media_type="image/png")
 
 
-def _tool_use_response(tool_name: str, input_: dict):
+def _tool_use_response(tool_name: str, input_: dict, *, input_tokens: int = 50, output_tokens: int = 10):
     block = AsyncMock()
     block.type = "tool_use"
     block.name = tool_name
     block.input = input_
     response = AsyncMock()
     response.content = [block]
+    response.usage = SimpleNamespace(input_tokens=input_tokens, output_tokens=output_tokens)
     return response
 
 
@@ -38,6 +45,14 @@ def _client_returning(tool_name: str, input_: dict) -> AsyncMock:
     client = AsyncMock()
     client.messages.create = AsyncMock(return_value=_tool_use_response(tool_name, input_))
     return client
+
+
+class _RecordingRecorder:
+    def __init__(self) -> None:
+        self.records: list[ModelCallRecord] = []
+
+    async def record(self, record: ModelCallRecord) -> None:
+        self.records.append(record)
 
 
 def test_satisfies_the_model_provider_protocol():
@@ -157,3 +172,35 @@ async def test_tool_use_block_missing_raises_a_clear_error():
 
     with pytest.raises(ValueError, match="classify_page"):
         await provider.classify_page(PAGE, [INVOICE])
+
+
+async def test_calls_are_reported_to_the_registered_recorder_with_usage_and_latency():
+    client = _client_returning(
+        "classify_document",
+        {"matched": True, "documentTypeName": "Invoice", "schemaVersion": 3, "confidence": 0.87},
+    )
+    provider = AnthropicModelProvider(client)
+    recorder = _RecordingRecorder()
+    token = current_model_call_recorder.set(recorder)
+    try:
+        await provider.classify_document([PAGE], [INVOICE])
+    finally:
+        current_model_call_recorder.reset(token)
+
+    [record] = recorder.records
+    assert record.call_type == "document_classification"
+    assert record.input_tokens == 50
+    assert record.output_tokens == 10
+    assert record.latency_ms >= 0
+    assert "Invoice" in record.prompt
+    assert json.loads(record.response)["documentTypeName"] == "Invoice"
+
+
+async def test_no_recorder_registered_means_no_recording_attempted():
+    client = _client_returning("classify_page", {"matched": False})
+    provider = AnthropicModelProvider(client)
+
+    # Should not raise even though no recorder is set (the default ContextVar state).
+    result = await provider.classify_page(PAGE, [INVOICE])
+
+    assert result.document_type_name is None

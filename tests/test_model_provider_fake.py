@@ -2,6 +2,10 @@ import pytest
 
 from document_intelligence.model_provider.fake import FakeModelProvider
 from document_intelligence.model_provider.protocol import ModelProvider
+from document_intelligence.model_provider.recording import (
+    ModelCallRecord,
+    current_model_call_recorder,
+)
 from document_intelligence.model_provider.types import (
     DocumentClassification,
     DocumentTypeSchema,
@@ -90,3 +94,29 @@ async def test_classify_page_with_no_scripted_responses_raises_immediately():
 
     with pytest.raises(AssertionError):
         await provider.classify_page(PAGE, [INVOICE])
+
+
+async def test_calls_are_reported_to_the_registered_recorder():
+    provider = FakeModelProvider(
+        page_classifications=[PageClassification("Invoice")], input_tokens=7, output_tokens=3
+    )
+
+    class _RecordingRecorder:
+        def __init__(self) -> None:
+            self.records: list[ModelCallRecord] = []
+
+        async def record(self, record: ModelCallRecord) -> None:
+            self.records.append(record)
+
+    recorder = _RecordingRecorder()
+    token = current_model_call_recorder.set(recorder)
+    try:
+        await provider.classify_page(PAGE, [INVOICE])
+    finally:
+        current_model_call_recorder.reset(token)
+
+    [record] = recorder.records
+    assert record.call_type == "page_classification"
+    assert record.input_tokens == 7
+    assert record.output_tokens == 3
+    assert record.latency_ms >= 0
