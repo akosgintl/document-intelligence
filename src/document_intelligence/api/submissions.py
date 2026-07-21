@@ -10,7 +10,7 @@ from document_intelligence.api.errors import ValidationError
 from document_intelligence.api.dto import SubmissionAccepted
 from document_intelligence.config import get_settings
 from document_intelligence.db import Job, JobStatus, Submission, get_session
-from document_intelligence.rendering import SUPPORTED_CONTENT_TYPES, RenderError, count_pdf_pages
+from document_intelligence.rendering import SUPPORTED_CONTENT_TYPES
 from document_intelligence.storage import put_object
 
 router = APIRouter(prefix="/v1/submissions", tags=["submissions"])
@@ -34,17 +34,6 @@ async def create_submission(
     body = await file.read()
     if not body:
         raise ValidationError("Submission file is empty")
-
-    if content_type == "application/pdf":
-        try:
-            page_count = count_pdf_pages(body)
-        except RenderError as exc:
-            raise ValidationError(str(exc)) from exc
-        if page_count != 1:
-            raise ValidationError(
-                f"Expected a single-page PDF, got {page_count} pages "
-                "(multi-page splitting isn't supported yet)"
-            )
 
     submission_id = uuid.uuid4()
     storage_key = f"submissions/{submission_id}/original"

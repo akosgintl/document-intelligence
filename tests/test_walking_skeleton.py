@@ -161,17 +161,6 @@ async def test_unmatched_page_becomes_unclassified_document(api_client, db_sessi
     assert len(provider.extraction_calls) == 0
 
 
-async def test_multi_page_pdf_is_rejected_at_submission_time(api_client):
-    response = await api_client.post(
-        "/v1/submissions",
-        headers=AUTH_HEADERS,
-        files={"file": ("multi.pdf", _n_page_pdf(3), "application/pdf")},
-    )
-
-    assert response.status_code == 400
-    assert response.json()["error"]["code"] == "invalid_submission"
-
-
 async def test_unsupported_content_type_is_rejected(api_client):
     response = await api_client.post(
         "/v1/submissions",

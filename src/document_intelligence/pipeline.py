@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -8,13 +9,24 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
 from document_intelligence.db import Document, DocumentStatus, Field, Job, JobStatus, Page
+from document_intelligence.grouping import group_pages_into_documents
 from document_intelligence.model_provider.protocol import ModelProvider
 from document_intelligence.model_provider.recording import current_model_call_recorder
 from document_intelligence.model_provider.types import Page as ProviderPage
 from document_intelligence.observability import PersistingModelCallRecorder
-from document_intelligence.rendering import render_single_page
+from document_intelligence.rendering import render_pages
 from document_intelligence.schema_registry import SchemaRegistry
 from document_intelligence.storage import get_object_bytes, put_object
+
+
+@dataclass(frozen=True)
+class _RenderedPage:
+    """One rendered Page, already uploaded to storage — bundles the two things every later
+    step needs (the image to send a Model Provider, the key to persist) so they travel
+    together instead of as parallel lists indexed by position."""
+
+    provider_page: ProviderPage
+    storage_key: str
 
 
 @dataclass(frozen=True)
@@ -30,11 +42,13 @@ class PipelineDeps:
 
 
 async def process_job(deps: PipelineDeps, job_id: str) -> None:
-    """Process one Job end to end: render its Submission's single Page, classify, extract,
-    validate, and persist the result.
+    """Process one Job end to end: render its Submission's Pages, classify each Page to find
+    Document boundaries (#23), then re-classify and extract per grouped Document.
 
-    Splitting/grouping across multiple Pages isn't implemented yet (#23) — a Job's Submission
-    is assumed to already be exactly one Page (enforced synchronously at submission time).
+    Two-phase classification per ADR-0001: page-level classification only finds boundaries
+    (`grouping.group_pages_into_documents`) — the authoritative Document Type and Schema
+    version for extraction always comes from the subsequent document-level call over the
+    whole group, never inferred from the per-page results.
     """
     async with deps.session_factory() as session:
         job = await _load_job(session, job_id)
@@ -55,52 +69,67 @@ async def process_job(deps: PipelineDeps, job_id: str) -> None:
             raw_bytes = await get_object_bytes(
                 deps.s3_client, bucket=deps.bucket, key=submission.storage_key
             )
-            image_bytes, media_type = render_single_page(raw_bytes, submission.content_type)
+            rendered_pages: list[_RenderedPage] = []
+            for page_number, (image_bytes, media_type) in enumerate(
+                render_pages(raw_bytes, submission.content_type), start=1
+            ):
+                page_key = f"submissions/{submission.id}/pages/{page_number}"
+                await put_object(
+                    deps.s3_client,
+                    bucket=deps.bucket,
+                    key=page_key,
+                    body=image_bytes,
+                    content_type=media_type,
+                )
+                rendered_pages.append(
+                    _RenderedPage(
+                        provider_page=ProviderPage(image_bytes=image_bytes, media_type=media_type),
+                        storage_key=page_key,
+                    )
+                )
 
-            page_key = f"submissions/{submission.id}/pages/1"
-            await put_object(
-                deps.s3_client,
-                bucket=deps.bucket,
-                key=page_key,
-                body=image_bytes,
-                content_type=media_type,
-            )
-
-            provider_page = ProviderPage(image_bytes=image_bytes, media_type=media_type)
             document_types = deps.schema_registry.all_latest()
 
-            # Page-level classification runs even though grouping is a no-op for a single Page,
-            # to exercise the real two-phase shape from ADR-0001 (see #21).
-            await deps.model_provider.classify_page(provider_page, document_types)
-            document_classification = await deps.model_provider.classify_document(
-                [provider_page], document_types
-            )
+            page_classifications = [
+                await deps.model_provider.classify_page(rendered.provider_page, document_types)
+                for rendered in rendered_pages
+            ]
+            boundaries = group_pages_into_documents(page_classifications)
 
-            document = Document(job=job)
-            session.add(document)
+            for boundary in boundaries:
+                group = [rendered_pages[index] for index in boundary.page_indices]
+                group_provider_pages = [rendered.provider_page for rendered in group]
 
-            if document_classification.document_type_name is None:
-                document.status = DocumentStatus.UNCLASSIFIED
-            else:
-                document.status = DocumentStatus.CLASSIFIED
-                document.document_type_name = document_classification.document_type_name
-                document.schema_version = document_classification.schema_version
-                await _extract_and_validate(
-                    session=session,
-                    document=document,
-                    provider_page=provider_page,
-                    model_provider=deps.model_provider,
-                    schema_registry=deps.schema_registry,
+                document_classification = await deps.model_provider.classify_document(
+                    group_provider_pages, document_types
                 )
 
-            session.add(
-                Page(
-                    document=document,
-                    page_number=1,
-                    storage_key=page_key,
-                    media_type=media_type,
-                )
-            )
+                document = Document(job=job)
+                session.add(document)
+
+                if document_classification.document_type_name is None:
+                    document.status = DocumentStatus.UNCLASSIFIED
+                else:
+                    document.status = DocumentStatus.CLASSIFIED
+                    document.document_type_name = document_classification.document_type_name
+                    document.schema_version = document_classification.schema_version
+                    await _extract_and_validate(
+                        session=session,
+                        document=document,
+                        provider_pages=group_provider_pages,
+                        model_provider=deps.model_provider,
+                        schema_registry=deps.schema_registry,
+                    )
+
+                for page_number, rendered in enumerate(group, start=1):
+                    session.add(
+                        Page(
+                            document=document,
+                            page_number=page_number,
+                            storage_key=rendered.storage_key,
+                            media_type=rendered.provider_page.media_type,
+                        )
+                    )
 
             job.status = JobStatus.COMPLETE
             await session.commit()
@@ -112,12 +141,12 @@ async def _extract_and_validate(
     *,
     session: AsyncSession,
     document: Document,
-    provider_page: ProviderPage,
+    provider_pages: Sequence[ProviderPage],
     model_provider: ModelProvider,
     schema_registry: SchemaRegistry,
 ) -> None:
     registered = schema_registry.get(document.document_type_name, document.schema_version)
-    extraction = await model_provider.extract([provider_page], registered.schema)
+    extraction = await model_provider.extract(provider_pages, registered.schema)
 
     values = {extracted_field.name: extracted_field.value for extracted_field in extraction.fields}
     # No retry-on-validation-failure yet (#24) — a validation failure here is a real gap in

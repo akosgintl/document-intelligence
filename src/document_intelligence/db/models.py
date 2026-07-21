@@ -95,8 +95,8 @@ class Job(Base):
 class Document(Base):
     """One logical unit found by splitting a Submission (CONTEXT.md).
 
-    Splitting/grouping isn't implemented yet (#23) — for now a Job has at most
-    one Document, covering its Submission's single Page.
+    A Job's Documents always form a complete partition of its Submission's Pages —
+    unclassified runs of Pages still become their own `unclassified` Document (#23).
     """
 
     __tablename__ = "documents"
@@ -127,6 +127,7 @@ class Page(Base):
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     document_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("documents.id"), nullable=False)
+    # 1-indexed position within this Document, not within the Submission it was split from.
     page_number: Mapped[int] = mapped_column(Integer, nullable=False)
     storage_key: Mapped[str] = mapped_column(String, nullable=False)
     media_type: Mapped[str] = mapped_column(String, nullable=False)
