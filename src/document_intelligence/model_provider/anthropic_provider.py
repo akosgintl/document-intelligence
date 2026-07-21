@@ -6,6 +6,7 @@ from typing import Any
 
 import anthropic
 
+from document_intelligence.model_provider.errors import TransientProviderError
 from document_intelligence.model_provider.recording import ModelCallType, report_model_call
 from document_intelligence.model_provider.types import (
     DocumentClassification,
@@ -103,13 +104,22 @@ class AnthropicModelProvider:
         content.append({"type": "text", "text": prompt})
 
         start = time.monotonic()
-        response = await self._client.messages.create(
-            model=self._model,
-            max_tokens=_MAX_TOKENS,
-            tools=[tool],
-            tool_choice={"type": "tool", "name": tool["name"]},
-            messages=[{"role": "user", "content": content}],
-        )  # type: ignore[call-overload]  # built from dict[str, Any], not the SDK's TypedDicts
+        try:
+            response = await self._client.messages.create(
+                model=self._model,
+                max_tokens=_MAX_TOKENS,
+                tools=[tool],
+                tool_choice={"type": "tool", "name": tool["name"]},
+                messages=[{"role": "user", "content": content}],
+            )  # type: ignore[call-overload]  # built from dict[str, Any], not the SDK's TypedDicts
+        except anthropic.APIConnectionError as exc:
+            raise TransientProviderError(str(exc)) from exc
+        except anthropic.APIStatusError as exc:
+            if exc.status_code == 429:
+                raise TransientProviderError(str(exc), retry_after=_retry_after_seconds(exc)) from exc
+            if exc.status_code >= 500:
+                raise TransientProviderError(str(exc)) from exc
+            raise
         latency_ms = (time.monotonic() - start) * 1000
 
         result = _tool_input(response, tool["name"])
@@ -133,6 +143,18 @@ def _image_block(page: Page) -> dict[str, Any]:
             "data": base64.standard_b64encode(page.image_bytes).decode("ascii"),
         },
     }
+
+
+def _retry_after_seconds(exc: anthropic.APIStatusError) -> float | None:
+    """Anthropic's `Retry-After` on a 429, in seconds, when present (ADR-0009) — always a
+    plain integer count of seconds per Anthropic's API, never an HTTP-date."""
+    header = exc.response.headers.get("retry-after")
+    if header is None:
+        return None
+    try:
+        return float(header)
+    except ValueError:
+        return None
 
 
 def _tool_input(response: Any, tool_name: str) -> dict[str, Any]:

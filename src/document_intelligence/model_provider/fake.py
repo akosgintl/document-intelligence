@@ -2,6 +2,7 @@ import time
 from collections.abc import Sequence
 from typing import Any, Generic, TypeVar
 
+from document_intelligence.model_provider.errors import TransientProviderError
 from document_intelligence.model_provider.recording import ModelCallType, report_model_call
 from document_intelligence.model_provider.types import (
     DocumentClassification,
@@ -49,12 +50,22 @@ class FakeModelProvider:
         extractions: Sequence[ExtractionResult] = (),
         input_tokens: int = 100,
         output_tokens: int = 20,
+        page_classification_transient_errors: int = 0,
+        document_classification_transient_errors: int = 0,
+        extraction_transient_errors: int = 0,
     ) -> None:
         self._page_classifications = _Script(page_classifications)
         self._document_classifications = _Script(document_classifications)
         self._extractions = _Script(extractions)
         self._input_tokens = input_tokens
         self._output_tokens = output_tokens
+        # Each counts down to 0: that many calls to the method raise `TransientProviderError`
+        # (ADR-0009) before scripted responses start being consumed as normal — simulating a
+        # Provider that fails transiently N times before recovering, or never recovering, at
+        # whichever of the three call types a test targets.
+        self._page_classification_transient_errors = page_classification_transient_errors
+        self._document_classification_transient_errors = document_classification_transient_errors
+        self._extraction_transient_errors = extraction_transient_errors
 
         self.page_classification_calls: list[tuple[Page, tuple[DocumentTypeSchema, ...]]] = []
         self.document_classification_calls: list[
@@ -66,6 +77,9 @@ class FakeModelProvider:
         self, page: Page, document_types: Sequence[DocumentTypeSchema]
     ) -> PageClassification:
         self.page_classification_calls.append((page, tuple(document_types)))
+        if self._page_classification_transient_errors > 0:
+            self._page_classification_transient_errors -= 1
+            raise TransientProviderError("simulated transient page classification error")
         start = time.monotonic()
         result = self._page_classifications.next("page classification")
         await self._record(
@@ -80,6 +94,9 @@ class FakeModelProvider:
         self, pages: Sequence[Page], document_types: Sequence[DocumentTypeSchema]
     ) -> DocumentClassification:
         self.document_classification_calls.append((tuple(pages), tuple(document_types)))
+        if self._document_classification_transient_errors > 0:
+            self._document_classification_transient_errors -= 1
+            raise TransientProviderError("simulated transient document classification error")
         start = time.monotonic()
         result = self._document_classifications.next("document classification")
         await self._record(
@@ -98,6 +115,9 @@ class FakeModelProvider:
         validation_errors: Sequence[str] | None = None,
     ) -> ExtractionResult:
         self.extraction_calls.append((tuple(pages), document_type, tuple(validation_errors or ())))
+        if self._extraction_transient_errors > 0:
+            self._extraction_transient_errors -= 1
+            raise TransientProviderError("simulated transient extraction error")
         start = time.monotonic()
         result = self._extractions.next("extraction")
         await self._record(

@@ -11,9 +11,10 @@ from sqlalchemy.orm import selectinload
 
 from document_intelligence.db import Document, DocumentStatus, Field, Job, JobStatus, Page
 from document_intelligence.grouping import group_pages_into_documents
+from document_intelligence.model_provider.errors import TransientProviderError
 from document_intelligence.model_provider.protocol import ModelProvider
 from document_intelligence.model_provider.recording import current_model_call_recorder
-from document_intelligence.model_provider.types import ExtractionResult
+from document_intelligence.model_provider.types import DocumentClassification, ExtractionResult
 from document_intelligence.model_provider.types import Page as ProviderPage
 from document_intelligence.observability import PersistingModelCallRecorder
 from document_intelligence.rendering import render_pages
@@ -127,38 +128,51 @@ async def process_job(deps: PipelineDeps, job_id: str) -> None:
                 group = [rendered_pages[index] for index in boundary.page_indices]
                 group_provider_pages = [rendered.provider_page for rendered in group]
 
-                document_classification = await deps.model_provider.classify_document(
-                    group_provider_pages, document_types
-                )
+                try:
+                    document_classification: DocumentClassification | None = (
+                        await deps.model_provider.classify_document(
+                            group_provider_pages, document_types
+                        )
+                    )
+                except TransientProviderError:
+                    # Exhausted the transient-error retry budget without ever producing a
+                    # scorable result — routes into the same needs_review contract a
+                    # low-confidence result would, rather than failing the whole Job over one
+                    # stubborn Document (ADR-0009).
+                    document_classification = None
 
                 document = Document(job=job)
                 session.add(document)
-                document.classification_confidence = document_classification.confidence
 
-                if document_classification.document_type_name is None:
-                    document.status = DocumentStatus.UNCLASSIFIED
+                if document_classification is None:
+                    document.status = DocumentStatus.CLASSIFICATION_NEEDS_REVIEW
                 else:
-                    document.document_type_name = document_classification.document_type_name
-                    document.schema_version = document_classification.schema_version
-                    registered = deps.schema_registry.get(
-                        document_classification.document_type_name,
-                        document_classification.schema_version,
-                    )
-                    assert document_classification.confidence is not None, (
-                        "Model Provider contract: confidence is required whenever "
-                        "document_type_name is set"
-                    )
-                    if document_classification.confidence < registered.confidence_threshold:
-                        document.status = DocumentStatus.CLASSIFICATION_NEEDS_REVIEW
+                    document.classification_confidence = document_classification.confidence
+
+                    if document_classification.document_type_name is None:
+                        document.status = DocumentStatus.UNCLASSIFIED
                     else:
-                        document.status = DocumentStatus.CLASSIFIED
-                        await extract_and_validate(
-                            session=session,
-                            document=document,
-                            provider_pages=group_provider_pages,
-                            model_provider=deps.model_provider,
-                            schema_registry=deps.schema_registry,
+                        document.document_type_name = document_classification.document_type_name
+                        document.schema_version = document_classification.schema_version
+                        registered = deps.schema_registry.get(
+                            document_classification.document_type_name,
+                            document_classification.schema_version,
                         )
+                        assert document_classification.confidence is not None, (
+                            "Model Provider contract: confidence is required whenever "
+                            "document_type_name is set"
+                        )
+                        if document_classification.confidence < registered.confidence_threshold:
+                            document.status = DocumentStatus.CLASSIFICATION_NEEDS_REVIEW
+                        else:
+                            document.status = DocumentStatus.CLASSIFIED
+                            await extract_and_validate(
+                                session=session,
+                                document=document,
+                                provider_pages=group_provider_pages,
+                                model_provider=deps.model_provider,
+                                schema_registry=deps.schema_registry,
+                            )
 
                 for page_number, rendered in enumerate(group, start=1):
                     session.add(
@@ -239,9 +253,16 @@ async def extract_and_validate(
 
     errors: Sequence[str] = ()
     for attempt_number in range(1, _MAX_EXTRACTION_ATTEMPTS + 1):
-        extraction = await model_provider.extract(
-            provider_pages, registered.schema, validation_errors=errors or None
-        )
+        try:
+            extraction = await model_provider.extract(
+                provider_pages, registered.schema, validation_errors=errors or None
+            )
+        except TransientProviderError:
+            # Exhausted the transient-error retry budget without ever producing a scorable
+            # result — routes into extraction_needs_review rather than extraction_failed,
+            # since there was never a validatable result to fail (ADR-0009).
+            document.status = DocumentStatus.EXTRACTION_NEEDS_REVIEW
+            return
         errors = extraction_validation_errors(extraction, registered.schema.json_schema)
         decision = decide_extraction(attempt_number=attempt_number, errors=errors)
         if decision is not ExtractionDecision.RETRY:

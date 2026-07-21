@@ -2,9 +2,12 @@ import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import anthropic
+import httpx
 import pytest
 
 from document_intelligence.model_provider.anthropic_provider import AnthropicModelProvider
+from document_intelligence.model_provider.errors import TransientProviderError
 from document_intelligence.model_provider.protocol import ModelProvider
 from document_intelligence.model_provider.recording import (
     ModelCallRecord,
@@ -204,3 +207,63 @@ async def test_no_recorder_registered_means_no_recording_attempted():
     result = await provider.classify_page(PAGE, [INVOICE])
 
     assert result.document_type_name is None
+
+
+# --- Transient-error translation (#28, ADR-0009) ------------------------------------------
+
+
+def _api_status_error(status_code: int, *, headers: dict[str, str] | None = None) -> anthropic.APIStatusError:
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    response = httpx.Response(status_code, request=request, headers=headers or {})
+    return anthropic.APIStatusError("simulated error", response=response, body=None)
+
+
+def _api_connection_error() -> anthropic.APIConnectionError:
+    return anthropic.APIConnectionError(request=httpx.Request("POST", "https://api.anthropic.com/v1/messages"))
+
+
+async def test_a_rate_limit_error_is_translated_to_transient_honoring_retry_after():
+    client = AsyncMock()
+    client.messages.create = AsyncMock(side_effect=_api_status_error(429, headers={"retry-after": "3"}))
+    provider = AnthropicModelProvider(client)
+
+    with pytest.raises(TransientProviderError) as exc_info:
+        await provider.classify_page(PAGE, [INVOICE])
+    assert exc_info.value.retry_after == 3.0
+
+
+async def test_a_rate_limit_error_without_retry_after_has_no_retry_after():
+    client = AsyncMock()
+    client.messages.create = AsyncMock(side_effect=_api_status_error(429))
+    provider = AnthropicModelProvider(client)
+
+    with pytest.raises(TransientProviderError) as exc_info:
+        await provider.classify_page(PAGE, [INVOICE])
+    assert exc_info.value.retry_after is None
+
+
+async def test_a_5xx_error_is_translated_to_transient():
+    client = AsyncMock()
+    client.messages.create = AsyncMock(side_effect=_api_status_error(503))
+    provider = AnthropicModelProvider(client)
+
+    with pytest.raises(TransientProviderError):
+        await provider.classify_page(PAGE, [INVOICE])
+
+
+async def test_a_connection_error_is_translated_to_transient():
+    client = AsyncMock()
+    client.messages.create = AsyncMock(side_effect=_api_connection_error())
+    provider = AnthropicModelProvider(client)
+
+    with pytest.raises(TransientProviderError):
+        await provider.classify_page(PAGE, [INVOICE])
+
+
+async def test_a_non_transient_4xx_error_is_not_translated():
+    client = AsyncMock()
+    client.messages.create = AsyncMock(side_effect=_api_status_error(400))
+    provider = AnthropicModelProvider(client)
+
+    with pytest.raises(anthropic.APIStatusError):
+        await provider.classify_page(PAGE, [INVOICE])

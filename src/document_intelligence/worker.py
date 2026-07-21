@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from document_intelligence.config import get_settings
 from document_intelligence.db import make_engine
 from document_intelligence.model_provider.anthropic_provider import AnthropicModelProvider
+from document_intelligence.model_provider.retry import RetryingModelProvider
 from document_intelligence.pipeline import PipelineDeps
 from document_intelligence.pipeline import process_document_extraction as _process_document_extraction
 from document_intelligence.pipeline import process_job as _process_job
@@ -25,7 +26,7 @@ async def startup(ctx: dict) -> None:
         session_factory=async_sessionmaker(make_engine(), expire_on_commit=False),
         s3_client=s3_client,
         bucket=settings.s3_bucket,
-        model_provider=AnthropicModelProvider(anthropic.AsyncAnthropic()),
+        model_provider=RetryingModelProvider(AnthropicModelProvider(anthropic.AsyncAnthropic())),
         schema_registry=SchemaRegistry.load(settings.schema_registry_dir),
     )
 
