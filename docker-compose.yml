@@ -45,6 +45,16 @@ services:
       timeout: 5s
       retries: 10
 
+  redisinsight:
+    image: redis/redisinsight:latest
+    ports:
+      - "5540:5540"
+    volumes:
+      - redisinsight-data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+
   minio:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
@@ -102,3 +112,4 @@ services:
 volumes:
   postgres-data:
   minio-data:
+  redisinsight-data:
