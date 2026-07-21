@@ -3,10 +3,11 @@ import enum
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 import jsonschema
-from sqlalchemy import select
+from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
@@ -194,8 +195,25 @@ async def process_job(deps: PipelineDeps, job_id: str) -> None:
                 # cost this already-finished Document (#27).
                 await session.commit()
 
-            job.status = JobStatus.COMPLETE
+            # A conditional UPDATE, not a plain `job.status = ...` attribute set: the
+            # reconciliation sweep (#32) can mark this Job `failed` out from under a
+            # still-genuinely-running final attempt, since its only proxy for "stuck" is a
+            # stale `updated_at` that one long-running call in this loop doesn't refresh.
+            # Once a terminal status is set it must never be silently overwritten — a caller
+            # who already saw `failed` must never see it flip back to `complete` — so a
+            # concurrently-failed Job's status is left alone rather than revived here. Every
+            # Document already committed above stays visible regardless (ADR-0005).
+            result = cast(
+                CursorResult,
+                await session.execute(
+                    update(Job)
+                    .where(Job.id == job.id, Job.status == JobStatus.PROCESSING)
+                    .values(status=JobStatus.COMPLETE)
+                ),
+            )
             await session.commit()
+            if result.rowcount == 0:
+                return
         except Exception:
             if attempt_number >= _MAX_JOB_ATTEMPTS:
                 await mark_job_failed(deps.session_factory, job_id)
@@ -473,6 +491,47 @@ async def mark_job_failed(session_factory: async_sessionmaker[AsyncSession], job
             return
         job.status = JobStatus.FAILED
         await session.commit()
+
+
+async def reconcile_stuck_jobs(
+    session_factory: async_sessionmaker[AsyncSession], *, stale_after_seconds: int
+) -> int:
+    """Sweep for Jobs a hard worker crash orphaned in `processing` (#32): a real process
+    kill/OOM landing on exactly a Job's last permitted attempt never runs any of our code on
+    that attempt, so neither `process_job`'s own `except Exception` handler nor
+    `mark_job_failed` ever fires for it — confirmed against `arq`'s source (`arq/worker.py`):
+    once a redelivered job's `job_try` exceeds `max_tries`, `Worker._run_job` short-circuits
+    straight to `finish_failed_job` without invoking our coroutine at all. This sweep is
+    independent of any single `process_job` invocation, run on a schedule (`worker.py`'s cron
+    job) rather than from inside `process_job` itself, so it still catches the Job even though
+    nothing ever calls `process_job` for it again.
+
+    A Job qualifies once its `attempt_count` has already reached `_MAX_JOB_ATTEMPTS` (the same
+    bound `process_job` checks itself) and `updated_at` is older than `stale_after_seconds` —
+    the staleness check exists so an attempt still genuinely in flight, whose `attempt_count`
+    happens to have just reached the bound, isn't mistaken for an abandoned one. Reuses
+    `mark_job_failed` per Job rather than a bulk UPDATE, so the same idempotent status check
+    (never reopening a Job some other path already moved to `complete`/`failed`) applies here
+    too. Returns how many Jobs were marked `failed`.
+    """
+    # `updated_at` is stored as a naive Postgres `timestamp` (UTC by convention, matching
+    # `func.now()`'s server default) — compare against a naive cutoff too, since asyncpg
+    # rejects a tz-aware datetime bound against that column type.
+    cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=stale_after_seconds)
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Job.id).where(
+                Job.status == JobStatus.PROCESSING,
+                Job.attempt_count >= _MAX_JOB_ATTEMPTS,
+                Job.updated_at < cutoff,
+            )
+        )
+        stuck_job_ids = [str(job_id) for job_id in result.scalars().all()]
+
+    for job_id in stuck_job_ids:
+        await mark_job_failed(session_factory, job_id)
+
+    return len(stuck_job_ids)
 
 
 async def _load_job(session: AsyncSession, job_id: str) -> Job | None:

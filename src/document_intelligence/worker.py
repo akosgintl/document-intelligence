@@ -2,6 +2,7 @@ from contextlib import AsyncExitStack
 
 import anthropic
 from arq.connections import RedisSettings
+from arq.cron import cron
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from document_intelligence.config import get_settings
@@ -11,6 +12,7 @@ from document_intelligence.model_provider.retry import RetryingModelProvider
 from document_intelligence.pipeline import PipelineDeps
 from document_intelligence.pipeline import process_document_extraction as _process_document_extraction
 from document_intelligence.pipeline import process_job as _process_job
+from document_intelligence.pipeline import reconcile_stuck_jobs as _reconcile_stuck_jobs
 from document_intelligence.schema_registry import SchemaRegistry
 from document_intelligence.storage import get_s3_client
 
@@ -53,8 +55,19 @@ async def extract_document(ctx: dict, document_id: str) -> None:
     await _process_document_extraction(ctx["pipeline_deps"], document_id)
 
 
+async def reconcile_stuck_jobs(ctx: dict) -> None:
+    """Scheduled independently of any single `process_job` run (#32) — catches a Job left
+    stuck in `processing` by a hard worker crash on its last permitted attempt, a case
+    `process_job`'s own `except Exception` handler never runs for."""
+    deps: PipelineDeps = ctx["pipeline_deps"]
+    await _reconcile_stuck_jobs(
+        deps.session_factory, stale_after_seconds=get_settings().job_stale_after_seconds
+    )
+
+
 class WorkerSettings:
     functions = [ping, process_job, extract_document]
+    cron_jobs = [cron(reconcile_stuck_jobs, run_at_startup=True)]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)

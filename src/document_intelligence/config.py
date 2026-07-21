@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     max_submission_size_bytes: int = 50 * 1024 * 1024
     max_submission_pages: int = 200
 
+    # How long a Job can sit in `processing` at its final permitted attempt with no further
+    # activity before the reconciliation sweep considers it abandoned (#32) — long enough that
+    # an attempt still genuinely in flight is never mistaken for one a hard crash orphaned.
+    job_stale_after_seconds: int = 300
+
 
 @lru_cache
 def get_settings() -> Settings:
