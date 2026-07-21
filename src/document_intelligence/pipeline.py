@@ -1,5 +1,6 @@
+import enum
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -12,11 +13,14 @@ from document_intelligence.db import Document, DocumentStatus, Field, Job, JobSt
 from document_intelligence.grouping import group_pages_into_documents
 from document_intelligence.model_provider.protocol import ModelProvider
 from document_intelligence.model_provider.recording import current_model_call_recorder
+from document_intelligence.model_provider.types import ExtractionResult
 from document_intelligence.model_provider.types import Page as ProviderPage
 from document_intelligence.observability import PersistingModelCallRecorder
 from document_intelligence.rendering import render_pages
 from document_intelligence.schema_registry import SchemaRegistry
 from document_intelligence.storage import get_object_bytes, put_object
+
+_MAX_EXTRACTION_ATTEMPTS = 2
 
 
 @dataclass(frozen=True)
@@ -137,6 +141,38 @@ async def process_job(deps: PipelineDeps, job_id: str) -> None:
             current_model_call_recorder.reset(recorder_token)
 
 
+def extraction_validation_errors(
+    extraction: ExtractionResult, json_schema: Mapping[str, Any]
+) -> list[str]:
+    """Every violation of an Extraction's Field values against its bound Schema, collected up
+    front (not just the first) so a retry prompt can address everything wrong at once (#24).
+    Empty means the Extraction validates.
+    """
+    values = {extracted_field.name: extracted_field.value for extracted_field in extraction.fields}
+    validator_cls = jsonschema.validators.validator_for(json_schema)
+    validator = validator_cls(json_schema)
+    return [error.message for error in validator.iter_errors(values)]
+
+
+class ExtractionDecision(enum.Enum):
+    """What to do next after one Extraction attempt's validation errors are known."""
+
+    ACCEPT = "accept"
+    RETRY = "retry"
+    FAIL = "fail"
+
+
+def decide_extraction(*, attempt_number: int, errors: Sequence[str]) -> ExtractionDecision:
+    """Pure validate/retry decision (#24): given which attempt just ran (1-indexed) and its
+    validation errors, decide whether to accept the result, retry once more, or give up —
+    exactly one retry total, never unbounded."""
+    if not errors:
+        return ExtractionDecision.ACCEPT
+    if attempt_number < _MAX_EXTRACTION_ATTEMPTS:
+        return ExtractionDecision.RETRY
+    return ExtractionDecision.FAIL
+
+
 async def _extract_and_validate(
     *,
     session: AsyncSession,
@@ -145,13 +181,24 @@ async def _extract_and_validate(
     model_provider: ModelProvider,
     schema_registry: SchemaRegistry,
 ) -> None:
+    """Extract per the bound Schema, retrying exactly once on validation failure with the
+    errors fed back into the prompt — a second failure lands the Document in
+    `extraction_failed` rather than retrying unboundedly (#24)."""
     registered = schema_registry.get(document.document_type_name, document.schema_version)
-    extraction = await model_provider.extract(provider_pages, registered.schema)
 
-    values = {extracted_field.name: extracted_field.value for extracted_field in extraction.fields}
-    # No retry-on-validation-failure yet (#24) — a validation failure here is a real gap in
-    # this ticket's scope and propagates as an unhandled error rather than degrading silently.
-    jsonschema.validate(instance=values, schema=registered.schema.json_schema)
+    errors: Sequence[str] = ()
+    for attempt_number in range(1, _MAX_EXTRACTION_ATTEMPTS + 1):
+        extraction = await model_provider.extract(
+            provider_pages, registered.schema, validation_errors=errors or None
+        )
+        errors = extraction_validation_errors(extraction, registered.schema.json_schema)
+        decision = decide_extraction(attempt_number=attempt_number, errors=errors)
+        if decision is not ExtractionDecision.RETRY:
+            break
+
+    if decision is ExtractionDecision.FAIL:
+        document.status = DocumentStatus.EXTRACTION_FAILED
+        return
 
     for extracted_field in extraction.fields:
         session.add(

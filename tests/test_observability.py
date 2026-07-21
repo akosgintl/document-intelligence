@@ -6,8 +6,6 @@ import json
 import uuid
 from pathlib import Path
 
-import jsonschema
-import pytest
 from sqlalchemy import select
 
 from document_intelligence.config import get_settings
@@ -156,17 +154,17 @@ async def test_job_token_usage_is_zero_for_a_job_with_no_model_calls(db_session_
     assert usage.output_tokens == 0
 
 
-async def test_model_calls_survive_a_later_failure_in_the_same_jobs_processing(
+async def test_a_retried_extraction_call_is_persisted_like_any_other_model_call(
     api_client, db_session_factory, tmp_path
 ):
-    """Extraction validation failure (a real gap until #24) rolls back the Job's own
-    transaction — Document/Field/Job-status changes are lost — but every `ModelCall` made
-    up to that point must still be persisted, since debugging that exact failure is the
-    whole point of this ticket."""
+    """A validation failure (#24) retries the Extraction call once — that retry must be
+    persisted via the observability layer exactly like every other Model Provider call,
+    even though the Document it belongs to ultimately lands in `extraction_failed`."""
     registry = _write_registry(tmp_path)
     provider = FakeModelProvider(
         page_classifications=[PageClassification("invoice")],
         document_classifications=[DocumentClassification("invoice", 1, 0.95)],
+        # Missing the required vendorName Field — fails validation both times it's scripted.
         extractions=[ExtractionResult((ExtractedField("invoiceNumber", "INV-100", 0.97),))],
     )
 
@@ -186,15 +184,17 @@ async def test_model_calls_survive_a_later_failure_in_the_same_jobs_processing(
             model_provider=provider,
             schema_registry=registry,
         )
-        with pytest.raises(jsonschema.ValidationError):
-            await process_job(deps, str(job_id))
+        await process_job(deps, str(job_id))
 
     async with db_session_factory() as session:
-        result = await session.execute(select(ModelCall).where(ModelCall.job_id == job_id))
+        result = await session.execute(
+            select(ModelCall).where(ModelCall.job_id == job_id).order_by(ModelCall.created_at)
+        )
         calls = result.scalars().all()
 
     assert [call.call_type for call in calls] == [
         "page_classification",
         "document_classification",
+        "extraction",
         "extraction",
     ]

@@ -22,14 +22,15 @@ class JobStatus(str, enum.Enum):
 
 
 class DocumentStatus(str, enum.Enum):
-    """See CONTEXT.md's Document lifecycle. `classification_needs_review`,
-    `extraction_needs_review`, and `extraction_failed` don't exist yet — that's #24/#26.
+    """See CONTEXT.md's Document lifecycle. `classification_needs_review` and
+    `extraction_needs_review` don't exist yet — that's #26.
     """
 
     PENDING = "pending"
     CLASSIFIED = "classified"
     UNCLASSIFIED = "unclassified"
     EXTRACTED = "extracted"
+    EXTRACTION_FAILED = "extraction_failed"
 
 
 class ModelCallType(str, enum.Enum):
