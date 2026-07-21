@@ -17,6 +17,9 @@ class Settings(BaseSettings):
 
     schema_registry_dir: str = "schemas"
 
+    # Single-tenant, config-driven secret (no DB storage, manual rotation via redeploy).
+    api_key: str = "dev-local-api-key"
+
 
 @lru_cache
 def get_settings() -> Settings:

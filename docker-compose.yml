@@ -6,6 +6,7 @@ x-app-env: &app-env
   S3_SECRET_KEY: minioadmin
   S3_BUCKET: document-intelligence
   S3_REGION: us-east-1
+  API_KEY: dev-local-api-key
 
 x-app-depends-on: &app-depends-on
   postgres:

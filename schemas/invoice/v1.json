@@ -1,0 +1,25 @@
+{
+  "title": "Invoice",
+  "description": "A commercial invoice requesting payment for goods or services, itemizing a vendor, a bill-to party, and one or more line items.",
+  "type": "object",
+  "properties": {
+    "invoiceNumber": {
+      "type": "string",
+      "description": "The invoice's unique identifier as printed on the document."
+    },
+    "invoiceDate": {
+      "type": "string",
+      "format": "date",
+      "description": "The date the invoice was issued, as YYYY-MM-DD."
+    },
+    "vendorName": {
+      "type": "string",
+      "description": "The name of the vendor issuing the invoice."
+    },
+    "totalAmount": {
+      "type": "number",
+      "description": "The total amount due on the invoice."
+    }
+  },
+  "required": ["invoiceNumber", "vendorName", "totalAmount"]
+}
