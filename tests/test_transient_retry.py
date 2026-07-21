@@ -183,6 +183,41 @@ class _RateLimitedThenFakeProvider:
         return await self._inner.extract(*args, **kwargs)
 
 
+class _ScopedTransientErrorProvider:
+    """Wraps a `FakeModelProvider`, injecting `transient_errors` `TransientProviderError`s into
+    only the *first* distinct `classify_document` call it sees (identified by Page identity)
+    and passing every other call straight through to `inner` untouched.
+
+    Independent boundary groups' `classify_document` calls now run concurrently (#31), so a
+    single error count shared across every call (`FakeModelProvider`'s own
+    `document_classification_transient_errors`) would be consumed by whichever group's attempts
+    happen to interleave first — not reliably the same group every run. Scoping by Page identity
+    keeps exactly one Document's retry budget targeted regardless of interleaving.
+    """
+
+    def __init__(self, inner: FakeModelProvider, *, transient_errors: int) -> None:
+        self.inner = inner
+        self._transient_errors = transient_errors
+        self._target_key: int | None = None
+
+    async def classify_page(self, *args: Any, **kwargs: Any) -> PageClassification:
+        return await self.inner.classify_page(*args, **kwargs)
+
+    async def classify_document(
+        self, pages: Sequence[Page], document_types: Sequence[DocumentTypeSchema]
+    ) -> DocumentClassification:
+        key = id(pages[0])
+        if self._target_key is None:
+            self._target_key = key
+        if key == self._target_key and self._transient_errors > 0:
+            self._transient_errors -= 1
+            raise TransientProviderError("simulated transient document classification error")
+        return await self.inner.classify_document(pages, document_types)
+
+    async def extract(self, *args: Any, **kwargs: Any) -> ExtractionResult:
+        return await self.inner.extract(*args, **kwargs)
+
+
 async def test_a_retry_after_hint_is_passed_through_to_the_sleep_call():
     """A 429's `Retry-After` (ADR-0009) is honored exactly, not folded into the exponential
     backoff — asserted here with a Retry-After far outside the ~1s exponential value attempt 1
@@ -237,8 +272,8 @@ async def test_document_classification_exhausting_the_budget_routes_to_needs_rev
     inner = FakeModelProvider(
         page_classifications=[PageClassification("invoice"), PageClassification("receipt")],
         # The first boundary's classify_document call exhausts its retry budget entirely
-        # (3 transient errors scripted); the second boundary's call then proceeds normally
-        # against the remaining scripted response.
+        # (3 transient errors scripted, via _ScopedTransientErrorProvider below); the second
+        # boundary's call then proceeds normally against the remaining scripted response.
         document_classifications=[DocumentClassification("receipt", 1, 0.9)],
         extractions=[
             ExtractionResult(
@@ -248,9 +283,10 @@ async def test_document_classification_exhausting_the_budget_routes_to_needs_rev
                 )
             )
         ],
-        document_classification_transient_errors=3,
     )
-    provider = RetryingModelProvider(inner, sleep=_no_delay)
+    provider = RetryingModelProvider(
+        _ScopedTransientErrorProvider(inner, transient_errors=3), sleep=_no_delay
+    )
 
     response = await api_client.post(
         "/v1/submissions",

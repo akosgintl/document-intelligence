@@ -1,5 +1,5 @@
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any, Generic, TypeVar
 
 from document_intelligence.model_provider.errors import TransientProviderError
@@ -48,6 +48,7 @@ class FakeModelProvider:
         page_classifications: Sequence[PageClassification] = (),
         document_classifications: Sequence[DocumentClassification] = (),
         extractions: Sequence[ExtractionResult] = (),
+        extractions_by_document_type: Mapping[str, ExtractionResult] | None = None,
         input_tokens: int = 100,
         output_tokens: int = 20,
         page_classification_transient_errors: int = 0,
@@ -57,6 +58,13 @@ class FakeModelProvider:
         self._page_classifications = _Script(page_classifications)
         self._document_classifications = _Script(document_classifications)
         self._extractions = _Script(extractions)
+        # Alternative to `extractions`' call-order queue, for tests whose Documents extract
+        # concurrently (independent boundary groups, #31): a shared FIFO can't guarantee which
+        # Document's concurrent `extract` call reaches it first, but the resolved Document Type
+        # is already known by the time `extract` is called, so routing on it is deterministic
+        # regardless of interleaving. Takes priority over `extractions` when a Document Type has
+        # an entry here.
+        self._extractions_by_document_type = extractions_by_document_type or {}
         self._input_tokens = input_tokens
         self._output_tokens = output_tokens
         # Each counts down to 0: that many calls to the method raise `TransientProviderError`
@@ -119,7 +127,10 @@ class FakeModelProvider:
             self._extraction_transient_errors -= 1
             raise TransientProviderError("simulated transient extraction error")
         start = time.monotonic()
-        result = self._extractions.next("extraction")
+        if document_type.name in self._extractions_by_document_type:
+            result = self._extractions_by_document_type[document_type.name]
+        else:
+            result = self._extractions.next("extraction")
         await self._record(
             call_type="extraction",
             prompt=f"extract {document_type.name} fields from {len(pages)} page(s)",

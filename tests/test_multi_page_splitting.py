@@ -72,20 +72,24 @@ async def test_multi_document_submission_splits_by_document_type_and_settles_eac
             DocumentClassification(None, None, None),
             DocumentClassification("receipt", 1, 0.95),
         ],
-        extractions=[
-            ExtractionResult(
+        # Independent Documents' classify+extract sequences run concurrently (#31): the invoice
+        # and receipt groups' `extract` calls race each other, so each is routed by its resolved
+        # Document Type rather than by a shared call-order queue (see `FakeModelProvider`'s
+        # `extractions_by_document_type` docstring).
+        extractions_by_document_type={
+            "invoice": ExtractionResult(
                 (
                     ExtractedField("invoiceNumber", "INV-500", 0.95),
                     ExtractedField("vendorName", "Globex", 0.9),
                 )
             ),
-            ExtractionResult(
+            "receipt": ExtractionResult(
                 (
                     ExtractedField("merchantName", "Corner Store", 0.93),
                     ExtractedField("total", 12.5, 0.88),
                 )
             ),
-        ],
+        },
     )
 
     response = await api_client.post(

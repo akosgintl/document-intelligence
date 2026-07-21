@@ -127,7 +127,9 @@ async def test_single_page_pdf_submission_is_classified_and_extracted(
     assert document["schema_version"] == 1
     assert document["fields"] == {"invoiceNumber": "INV-100", "vendorName": "Acme Corp"}
 
-    assert len(provider.page_classification_calls) == 1
+    # A single-Page Submission has nothing to find a boundary against, so classify_page is
+    # skipped entirely (#31) — only the document-level Classification and Extraction calls run.
+    assert len(provider.page_classification_calls) == 0
     assert len(provider.document_classification_calls) == 1
     assert len(provider.extraction_calls) == 1
 

@@ -89,9 +89,10 @@ async def test_a_job_exhausting_retries_moves_to_failed_with_prior_documents_int
     # simulating a worker task that keeps failing on this Job no matter how many times it's
     # retried.
     inner = FakeModelProvider(
-        # 1 page classification for the invoice page, plus one per retry for the still-
-        # unfinished receipt page (5 attempts total).
-        page_classifications=[PageClassification("invoice")] + [PageClassification("receipt")] * 5,
+        # 1 page classification each for the invoice and receipt pages on the first attempt —
+        # every retry after that has only the still-unfinished receipt page left, which skips
+        # classify_page entirely (#31), so no further page classification response is needed.
+        page_classifications=[PageClassification("invoice"), PageClassification("receipt")],
         document_classifications=[DocumentClassification("invoice", 1, 0.9)],
         extractions=[
             ExtractionResult(
@@ -184,7 +185,9 @@ async def test_a_requeue_after_partial_completion_does_not_repeat_provider_calls
         # second Document's Page — if the implementation tried to re-render/reclassify the
         # first Document's Page, this Provider's scripted responses (for the receipt Page
         # only) would be consumed out of order or exhausted, and its own call log (asserted
-        # below) would show more than the one remaining Document's worth of calls.
+        # below) would show more than the one remaining Document's worth of calls. The single
+        # remaining Page also means classify_page is skipped entirely (#31), so its scripted
+        # response is never consumed.
         resumed_provider = FakeModelProvider(
             page_classifications=[PageClassification("receipt")],
             document_classifications=[DocumentClassification("receipt", 1, 0.95)],
@@ -206,7 +209,7 @@ async def test_a_requeue_after_partial_completion_does_not_repeat_provider_calls
         )
         await process_job(resumed_deps, job_id)
 
-    assert len(resumed_provider.page_classification_calls) == 1
+    assert len(resumed_provider.page_classification_calls) == 0
     assert len(resumed_provider.document_classification_calls) == 1
     assert len(resumed_provider.extraction_calls) == 1
 

@@ -68,8 +68,9 @@ async def test_processing_a_job_persists_one_model_call_record_per_provider_call
         )
         calls = result.scalars().all()
 
+    # A single-Page Submission skips classify_page entirely (#31) — only the document-level
+    # Classification and Extraction calls are persisted.
     assert [call.call_type for call in calls] == [
-        "page_classification",
         "document_classification",
         "extraction",
     ]
@@ -105,7 +106,8 @@ async def test_model_calls_for_an_unclassified_document_skip_extraction(
         result = await session.execute(select(ModelCall).where(ModelCall.job_id == job_id))
         calls = result.scalars().all()
 
-    assert [call.call_type for call in calls] == ["page_classification", "document_classification"]
+    # A single-Page Submission skips classify_page entirely (#31).
+    assert [call.call_type for call in calls] == ["document_classification"]
 
 
 async def test_job_token_usage_sums_across_all_persisted_calls(
@@ -141,9 +143,10 @@ async def test_job_token_usage_sums_across_all_persisted_calls(
     async with db_session_factory() as session:
         usage = await job_token_usage(session, job_id)
 
-    # page + document classification + extraction: 3 calls at 10/2 tokens each.
-    assert usage.input_tokens == 30
-    assert usage.output_tokens == 6
+    # document classification + extraction: 2 calls at 10/2 tokens each — a single-Page
+    # Submission skips classify_page entirely (#31).
+    assert usage.input_tokens == 20
+    assert usage.output_tokens == 4
 
 
 async def test_job_token_usage_is_zero_for_a_job_with_no_model_calls(db_session_factory):
@@ -192,8 +195,8 @@ async def test_a_retried_extraction_call_is_persisted_like_any_other_model_call(
         )
         calls = result.scalars().all()
 
+    # A single-Page Submission skips classify_page entirely (#31).
     assert [call.call_type for call in calls] == [
-        "page_classification",
         "document_classification",
         "extraction",
         "extraction",
