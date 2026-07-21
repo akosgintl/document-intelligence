@@ -13,6 +13,7 @@ dependencies = [
     "redis>=5.2",
     "arq>=0.26",
     "aioboto3>=13.2",
+    "anthropic>=0.117.0",
 ]
 
 [dependency-groups]
