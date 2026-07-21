@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     s3_bucket: str = "document-intelligence"
     s3_region: str = "us-east-1"
 
+    schema_registry_dir: str = "schemas"
+
 
 @lru_cache
 def get_settings() -> Settings:

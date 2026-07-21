@@ -46,6 +46,25 @@ uv run uvicorn document_intelligence.main:app --reload
 uv run arq document_intelligence.worker.WorkerSettings   # in a separate terminal
 ```
 
+## Schema Registry
+
+`SchemaRegistry.load(directory)` (`src/document_intelligence/schema_registry/`) loads every registered Document Type from a directory at startup, one subdirectory per Document Type:
+
+```
+<directory>/
+  invoice/
+    config.json   # {"confidence_threshold": 0.8}
+    v1.json       # JSON Schema document
+    v2.json
+  passport/
+    config.json
+    v1.json
+```
+
+Schema version is a plain incrementing integer taken from each `vN.json` filename ([ADR-0007](docs/adr/0007-schema-version-integer.md)) — never a field inside the Schema content itself. Confidence Threshold is required per Document Type with no system-wide default ([ADR-0004](docs/adr/0004-confidence-threshold-separate-from-schema.md)): loading fails loudly if any Document Type's `config.json` is missing or doesn't set one.
+
+**Operator invariant, not code-enforced:** a Schema version is immutable once any Document has been processed against it. The Registry doesn't check this — doing so needs the database's record of what's been processed, which doesn't exist until the Job/Document persistence layer is built. Until then, treating a `vN.json` file as append-only once it's live is on whoever maintains the registry directory.
+
 ## Tests
 
 ```sh
