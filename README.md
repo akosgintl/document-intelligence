@@ -46,6 +46,69 @@ uv run uvicorn document_intelligence.main:app --reload
 uv run arq document_intelligence.worker.WorkerSettings   # in a separate terminal
 ```
 
+## Manual testing
+
+### Connecting to Postgres (e.g. pgAdmin)
+
+Postgres is published to the host on its default port, so point pgAdmin (or any client) at:
+
+- Host: `localhost` (from Windows with WSL2, `localhost` reaches the WSL2 container's published port by default; if it doesn't resolve, use the WSL IP from `hostname -I` run inside WSL instead)
+- Port: `5432`
+- Database: `document_intelligence`
+- User / password: `postgres` / `postgres`
+
+### Browsing MinIO
+
+MinIO's web console is published alongside its S3 API:
+
+- Console: http://localhost:9001
+- Login: `minioadmin` / `minioadmin`
+- Bucket: `document-intelligence` (created automatically by the `minio-createbucket` service)
+
+(Port `9000` is the S3 API the app itself talks to — not for browser use.)
+
+### Anthropic API key
+
+The `worker`'s real `AnthropicModelProvider` needs a real key. Add it to your local `.env` before starting the stack:
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+`docker compose up` reads this from `.env` for the `worker` service; `uv run arq document_intelligence.worker.WorkerSettings` picks it up the same way when running outside Docker (`uv run` auto-loads `.env`). Without it, `docker compose up` will fail fast on the `worker` service with a missing-variable error rather than starting a worker that can't classify or extract anything.
+
+### Submitting a document
+
+With the stack up (`docker compose up -d`) and `ANTHROPIC_API_KEY` set, submit the committed sample invoice and poll until it finishes:
+
+```sh
+uv run python scripts/manual_test.py
+```
+
+This posts `scripts/samples/invoice.pdf` to `POST /v1/submissions`, polls `GET /v1/jobs/{job_id}` until the Job completes, and prints the extracted fields. Pass a different file to test your own PDF/PNG/JPEG/WebP:
+
+```sh
+uv run python scripts/manual_test.py path/to/your/document.pdf
+```
+
+Regenerate the sample invoice (e.g. to change its fields) with:
+
+```sh
+uv run python scripts/generate_sample_invoice.py
+```
+
+Equivalent plain `curl`, if you'd rather not run the script:
+
+```sh
+curl -s -X POST http://localhost:8000/v1/submissions \
+  -H "Authorization: Bearer dev-local-api-key" \
+  -F "file=@scripts/samples/invoice.pdf;type=application/pdf"
+# -> {"job_id": "...", "status": "pending"}
+
+curl -s http://localhost:8000/v1/jobs/<job_id> \
+  -H "Authorization: Bearer dev-local-api-key"
+```
+
 ## Schema Registry
 
 `SchemaRegistry.load(directory)` (`src/document_intelligence/schema_registry/`) loads every registered Document Type from a directory at startup, one subdirectory per Document Type:

@@ -94,7 +94,9 @@ services:
     build: .
     restart: unless-stopped
     command: ["arq", "document_intelligence.worker.WorkerSettings"]
-    environment: *app-env
+    environment:
+      <<: *app-env
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?Set ANTHROPIC_API_KEY in .env before starting the stack}
     depends_on: *app-depends-on
 
 volumes:
