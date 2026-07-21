@@ -1,0 +1,10 @@
+{
+  "document_type": "invoice",
+  "schema_version": 1,
+  "fields": {
+    "invoiceNumber": "INV-2026-0417",
+    "invoiceDate": "2026-07-01",
+    "vendorName": "Acme Robotics Supply Co.",
+    "totalAmount": 375.0
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "document_type": "invoice",
+  "schema_version": 1,
+  "fields": {
+    "invoiceNumber": "INV-2026-1183",
+    "invoiceDate": "2026-03-14",
+    "vendorName": "Northwind Industrial Parts",
+    "totalAmount": 3070.0
+  }
+}
