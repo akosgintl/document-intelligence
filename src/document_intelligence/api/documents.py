@@ -18,8 +18,11 @@ from document_intelligence.schema_registry import SchemaRegistry, SchemaRegistry
 router = APIRouter(prefix="/v1/documents", tags=["documents"])
 
 # A Review-submitted replacement Field isn't scored by the Model Provider (CONTEXT.md's
-# Confidence is specifically a Provider self-report) — it's the caller's own authoritative
-# correction, so it's recorded at full confidence rather than leaving the column ungated.
+# Confidence is specifically a Provider self-report) — it's the caller's own authoritative,
+# terminal correction. ADR-0003 deliberately models Review as a stateless status transition
+# with no separate Reviewer-identity/history record, so rather than adding a parallel signal
+# just to mark "this came from Review", the existing Confidence column is set to full
+# confidence — consistent with a replacement never re-triggering `extraction_needs_review`.
 _REVIEWED_FIELD_CONFIDENCE = 1.0
 
 _RESOLVABLE_STATUSES = {
@@ -51,7 +54,7 @@ async def review_document(
             f"'{document.status.value}')"
         )
 
-    if document.status is DocumentStatus.CLASSIFICATION_NEEDS_REVIEW:
+    if document.status == DocumentStatus.CLASSIFICATION_NEEDS_REVIEW:
         if "document_type" not in request.model_fields_set:
             raise ValidationError(
                 "Resolving a classification_needs_review Document requires 'document_type' "
@@ -94,6 +97,9 @@ async def _resolve_classification(
         document.status = DocumentStatus.UNCLASSIFIED
         document.document_type_name = None
         document.schema_version = None
+        # Matches the invariant documented on Document.classification_confidence: null
+        # whenever there's no Document Type left to have been confident about.
+        document.classification_confidence = None
         return
 
     try:

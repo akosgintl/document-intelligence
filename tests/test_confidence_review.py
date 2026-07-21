@@ -7,6 +7,7 @@ public HTTP API plus a real `arq` worker, with only the Model Provider swapped f
 """
 
 import json
+import uuid
 from pathlib import Path
 
 from test_walking_skeleton import (
@@ -18,6 +19,7 @@ from test_walking_skeleton import (
 )
 
 from document_intelligence.config import get_settings
+from document_intelligence.db import Document
 from document_intelligence.model_provider.fake import FakeModelProvider
 from document_intelligence.model_provider.types import (
     DocumentClassification,
@@ -211,6 +213,12 @@ async def test_review_confirms_unclassified(api_client, db_session_factory, tmp_
 
     result = await _poll_until_complete(api_client, job_id)
     assert result["documents"][0]["status"] == "unclassified"
+
+    # Matches Document.classification_confidence's documented invariant: null whenever
+    # there's no Document Type left to have been confident about.
+    async with db_session_factory() as session:
+        document = await session.get(Document, uuid.UUID(document_id))
+        assert document.classification_confidence is None
 
 
 async def test_review_unknown_document_type_is_rejected(
