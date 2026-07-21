@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     # Single-tenant, config-driven secret (no DB storage, manual rotation via redeploy).
     api_key: str = "dev-local-api-key"
 
+    # Operator-configured, caller-unadjustable Submission limits (#25): a Submission over
+    # either is rejected synchronously at POST time, before a Job is ever created.
+    max_submission_size_bytes: int = 50 * 1024 * 1024
+    max_submission_pages: int = 200
+
 
 @lru_cache
 def get_settings() -> Settings:

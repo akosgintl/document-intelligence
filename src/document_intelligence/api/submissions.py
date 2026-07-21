@@ -6,11 +6,15 @@ from fastapi import APIRouter, Depends, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from document_intelligence.api.deps import get_arq_pool, require_api_key, s3_client_dependency
-from document_intelligence.api.errors import ValidationError
+from document_intelligence.api.errors import (
+    SubmissionTooLargeError,
+    SubmissionTooManyPagesError,
+    ValidationError,
+)
 from document_intelligence.api.dto import SubmissionAccepted
 from document_intelligence.config import get_settings
 from document_intelligence.db import Job, JobStatus, Submission, get_session
-from document_intelligence.rendering import SUPPORTED_CONTENT_TYPES
+from document_intelligence.rendering import SUPPORTED_CONTENT_TYPES, RenderError, count_pages
 from document_intelligence.storage import put_object
 
 router = APIRouter(prefix="/v1/submissions", tags=["submissions"])
@@ -35,11 +39,28 @@ async def create_submission(
     if not body:
         raise ValidationError("Submission file is empty")
 
+    settings = get_settings()
+    if len(body) > settings.max_submission_size_bytes:
+        raise SubmissionTooLargeError(
+            f"Submission of {len(body)} bytes exceeds the "
+            f"{settings.max_submission_size_bytes}-byte limit"
+        )
+
+    try:
+        page_count = count_pages(body, content_type)
+    except RenderError as exc:
+        raise ValidationError(str(exc)) from exc
+    if page_count > settings.max_submission_pages:
+        raise SubmissionTooManyPagesError(
+            f"Submission has {page_count} pages, exceeding the "
+            f"{settings.max_submission_pages}-page limit"
+        )
+
     submission_id = uuid.uuid4()
     storage_key = f"submissions/{submission_id}/original"
     await put_object(
         s3_client,
-        bucket=get_settings().s3_bucket,
+        bucket=settings.s3_bucket,
         key=storage_key,
         body=body,
         content_type=content_type,

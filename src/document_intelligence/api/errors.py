@@ -18,6 +18,16 @@ class ValidationError(ApiError):
     code = "invalid_submission"
 
 
+class SubmissionTooLargeError(ApiError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "submission_too_large"
+
+
+class SubmissionTooManyPagesError(ApiError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "submission_too_many_pages"
+
+
 class AuthError(ApiError):
     status_code = status.HTTP_401_UNAUTHORIZED
     code = "unauthorized"
