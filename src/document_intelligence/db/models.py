@@ -14,11 +14,12 @@ class Base(DeclarativeBase):
 
 
 class JobStatus(str, enum.Enum):
-    """See CONTEXT.md's Job lifecycle. `failed` doesn't exist yet — that's #27."""
+    """See CONTEXT.md's Job lifecycle."""
 
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETE = "complete"
+    FAILED = "failed"
 
 
 class DocumentStatus(str, enum.Enum):
@@ -81,6 +82,11 @@ class Job(Base):
         nullable=False,
         default=JobStatus.PENDING,
     )
+    # How many times `process_job` has been attempted for this Job — tracked in Postgres
+    # rather than trusted from `arq`'s own in-memory/Redis retry count, since a real worker
+    # crash must survive to the next attempt (#27). Once it reaches `_MAX_JOB_ATTEMPTS`
+    # without reaching `complete`, the Job moves to `failed`.
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = _created_at()
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 

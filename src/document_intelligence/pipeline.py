@@ -22,6 +22,11 @@ from document_intelligence.storage import get_object_bytes, put_object
 
 _MAX_EXTRACTION_ATTEMPTS = 2
 
+# Matches `arq`'s default `max_tries` (worker.py keeps the library default rather than
+# overriding it) — tracked independently in Postgres, not read from `arq`'s own Redis-backed
+# retry count, so a Job's attempt count survives a real worker crash (#27).
+_MAX_JOB_ATTEMPTS = 5
+
 
 @dataclass(frozen=True)
 class _RenderedPage:
@@ -53,17 +58,27 @@ async def process_job(deps: PipelineDeps, job_id: str) -> None:
     (`grouping.group_pages_into_documents`) — the authoritative Document Type and Schema
     version for extraction always comes from the subsequent document-level call over the
     whole group, never inferred from the per-page results.
+
+    Each Document is committed as soon as it reaches a terminal status, rather than batching
+    every Document into one final commit — so a Document that finished before a later boundary
+    fails (or before this attempt exhausts its retries and the Job moves to `failed`) survives
+    and stays visible on the Job (#27). A resumed attempt skips re-rendering, reclassifying, or
+    re-extracting any leading run of Pages already covered by Documents committed by an earlier
+    attempt, so a retry never repeats a Model Provider call for work already done.
     """
     async with deps.session_factory() as session:
         job = await _load_job(session, job_id)
-        if job is None or job.status == JobStatus.COMPLETE:
-            # Already finished by a prior attempt at this Job — the queue's at-least-once
-            # delivery means a requeued Job must be a safe no-op once it's truly done.
+        if job is None or job.status in (JobStatus.COMPLETE, JobStatus.FAILED):
+            # Already finished — successfully or not — by a prior attempt at this Job. The
+            # queue's at-least-once delivery means a requeued Job must be a safe no-op once
+            # it's truly done, one way or the other.
             return
 
+        job.attempt_count += 1
+        attempt_number = job.attempt_count
         if job.status == JobStatus.PENDING:
             job.status = JobStatus.PROCESSING
-            await session.commit()
+        await session.commit()
 
         recorder_token = current_model_call_recorder.set(
             PersistingModelCallRecorder(session_factory=deps.session_factory, job_id=job.id)
@@ -73,10 +88,18 @@ async def process_job(deps: PipelineDeps, job_id: str) -> None:
             raw_bytes = await get_object_bytes(
                 deps.s3_client, bucket=deps.bucket, key=submission.storage_key
             )
+
+            # Documents always partition a Submission's Pages, committed strictly in page
+            # order (below) — so the Pages an earlier attempt already covered are always
+            # exactly the Job's current Documents' leading Pages, never a scattered subset.
+            already_covered = sum(len(document.pages) for document in job.documents)
+
             rendered_pages: list[_RenderedPage] = []
             for page_number, (image_bytes, media_type) in enumerate(
                 render_pages(raw_bytes, submission.content_type), start=1
             ):
+                if page_number <= already_covered:
+                    continue
                 page_key = f"submissions/{submission.id}/pages/{page_number}"
                 await put_object(
                     deps.s3_client,
@@ -147,8 +170,17 @@ async def process_job(deps: PipelineDeps, job_id: str) -> None:
                         )
                     )
 
+                # Commit now, before moving to the next boundary — a later boundary's Model
+                # Provider call failing (or this attempt running out of retries) must never
+                # cost this already-finished Document (#27).
+                await session.commit()
+
             job.status = JobStatus.COMPLETE
             await session.commit()
+        except Exception:
+            if attempt_number >= _MAX_JOB_ATTEMPTS:
+                await mark_job_failed(deps.session_factory, job_id)
+            raise
         finally:
             current_model_call_recorder.reset(recorder_token)
 
@@ -276,9 +308,27 @@ async def process_document_extraction(deps: PipelineDeps, document_id: str) -> N
             current_model_call_recorder.reset(recorder_token)
 
 
+async def mark_job_failed(session_factory: async_sessionmaker[AsyncSession], job_id: str) -> None:
+    """Transition a Job to `failed` in a fresh session, independent of whatever session/
+    transaction the exhausted attempt left in a bad state (#27). Idempotent: a Job some other
+    path already moved to `complete`/`failed` is left alone rather than reopened.
+    """
+    async with session_factory() as session:
+        job = await _load_job(session, job_id)
+        if job is None or job.status in (JobStatus.COMPLETE, JobStatus.FAILED):
+            return
+        job.status = JobStatus.FAILED
+        await session.commit()
+
+
 async def _load_job(session: AsyncSession, job_id: str) -> Job | None:
     result = await session.execute(
-        select(Job).where(Job.id == uuid.UUID(job_id)).options(selectinload(Job.submission))
+        select(Job)
+        .where(Job.id == uuid.UUID(job_id))
+        .options(
+            selectinload(Job.submission),
+            selectinload(Job.documents).selectinload(Document.pages),
+        )
     )
     return result.scalar_one_or_none()
 
