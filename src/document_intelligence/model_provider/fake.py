@@ -15,7 +15,10 @@ _T = TypeVar("_T")
 
 
 class _Script(Generic[_T]):
-    """A queue of scripted responses: a single response repeats forever; multiple are consumed in order and then exhausted."""
+    """A queue of scripted responses.
+
+    A single response repeats forever; multiple are consumed in order and then exhausted.
+    """
 
     def __init__(self, responses: Sequence[_T]) -> None:
         self._responses = list(responses)

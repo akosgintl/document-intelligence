@@ -5,10 +5,10 @@ driven entirely through the public HTTP API, per this repo's Testing Decisions.
 
 import pytest
 from sqlalchemy import func, select
+from test_walking_skeleton import AUTH_HEADERS, _n_page_pdf, _one_page_pdf
 
 from document_intelligence.config import get_settings
 from document_intelligence.db import Job
-from test_walking_skeleton import AUTH_HEADERS, _n_page_pdf, _one_page_pdf
 
 
 @pytest.fixture

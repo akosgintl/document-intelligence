@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 
 from sqlalchemy import select
+from test_walking_skeleton import AUTH_HEADERS, INVOICE_SCHEMA, _one_page_pdf, _run_worker
 
 from document_intelligence.config import get_settings
 from document_intelligence.db import ModelCall
@@ -21,7 +22,6 @@ from document_intelligence.observability import job_token_usage
 from document_intelligence.pipeline import PipelineDeps, process_job
 from document_intelligence.schema_registry import SchemaRegistry
 from document_intelligence.storage import get_s3_client
-from test_walking_skeleton import AUTH_HEADERS, INVOICE_SCHEMA, _one_page_pdf, _run_worker
 
 
 def _write_registry(root: Path) -> SchemaRegistry:

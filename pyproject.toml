@@ -25,6 +25,8 @@ dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "httpx>=0.28",
+    "ruff>=0.8",
+    "mypy>=1.13",
 ]
 
 [build-system]
@@ -39,3 +41,25 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+extend-exclude = ["migrations/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = [
+    "B008",  # FastAPI's `Depends()` in argument defaults is the idiomatic pattern
+    "UP042", # str+Enum (not StrEnum) is intentional throughout db/models.py
+    "UP046", # PEP 695 generics not worth the diff on a single generic helper
+]
+
+[tool.mypy]
+python_version = "3.12"
+packages = ["document_intelligence"]
+mypy_path = "src"
+ignore_missing_imports = true
+disallow_untyped_defs = false
+warn_unused_ignores = true
+warn_redundant_casts = true

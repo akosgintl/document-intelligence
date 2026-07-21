@@ -6,12 +6,12 @@ from fastapi import APIRouter, Depends, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from document_intelligence.api.deps import get_arq_pool, require_api_key, s3_client_dependency
+from document_intelligence.api.dto import SubmissionAccepted
 from document_intelligence.api.errors import (
     SubmissionTooLargeError,
     SubmissionTooManyPagesError,
     ValidationError,
 )
-from document_intelligence.api.dto import SubmissionAccepted
 from document_intelligence.config import get_settings
 from document_intelligence.db import Job, JobStatus, Submission, get_session
 from document_intelligence.rendering import SUPPORTED_CONTENT_TYPES, RenderError, count_pages

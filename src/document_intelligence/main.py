@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="document-intelligence", lifespan=lifespan)
-app.add_exception_handler(ApiError, api_error_handler)
+app.add_exception_handler(ApiError, api_error_handler)  # type: ignore[arg-type]  # narrower than Starlette's Exception-typed handler signature, the standard FastAPI pattern
 app.include_router(submissions_router)
 app.include_router(jobs_router)
 

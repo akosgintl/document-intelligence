@@ -1,7 +1,5 @@
 from unittest.mock import AsyncMock
 
-import pytest
-
 from document_intelligence.health import (
     check_postgres,
     check_redis,

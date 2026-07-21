@@ -8,6 +8,14 @@ Provider swapped for `FakeModelProvider`, per this repo's Testing Decisions.
 import json
 from pathlib import Path
 
+from test_walking_skeleton import (
+    AUTH_HEADERS,
+    INVOICE_SCHEMA,
+    _n_page_pdf,
+    _poll_until_complete,
+    _run_worker,
+)
+
 from document_intelligence.model_provider.fake import FakeModelProvider
 from document_intelligence.model_provider.types import (
     DocumentClassification,
@@ -16,7 +24,6 @@ from document_intelligence.model_provider.types import (
     PageClassification,
 )
 from document_intelligence.schema_registry import SchemaRegistry
-from test_walking_skeleton import AUTH_HEADERS, INVOICE_SCHEMA, _n_page_pdf, _poll_until_complete, _run_worker
 
 RECEIPT_SCHEMA = {
     "title": "Receipt",

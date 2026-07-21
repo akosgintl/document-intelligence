@@ -8,6 +8,13 @@ from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from test_walking_skeleton import (
+    AUTH_HEADERS,
+    INVOICE_SCHEMA,
+    _one_page_pdf,
+    _poll_until_complete,
+    _run_worker,
+)
 
 from document_intelligence.config import get_settings
 from document_intelligence.db import DocumentStatus, Job, JobStatus
@@ -16,13 +23,6 @@ from document_intelligence.model_provider.types import DocumentClassification, P
 from document_intelligence.pipeline import PipelineDeps, process_job
 from document_intelligence.schema_registry import SchemaRegistry
 from document_intelligence.storage import get_s3_client
-from test_walking_skeleton import (
-    AUTH_HEADERS,
-    INVOICE_SCHEMA,
-    _one_page_pdf,
-    _poll_until_complete,
-    _run_worker,
-)
 
 
 def _write_registry(root: Path) -> SchemaRegistry:

@@ -184,6 +184,7 @@ async def _extract_and_validate(
     """Extract per the bound Schema, retrying exactly once on validation failure with the
     errors fed back into the prompt — a second failure lands the Document in
     `extraction_failed` rather than retrying unboundedly (#24)."""
+    assert document.document_type_name is not None, "caller must classify before extracting"
     registered = schema_registry.get(document.document_type_name, document.schema_version)
 
     errors: Sequence[str] = ()

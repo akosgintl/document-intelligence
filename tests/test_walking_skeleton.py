@@ -10,6 +10,7 @@ from pathlib import Path
 import httpx
 import pypdfium2 as pdfium
 import pytest
+from support import run_worker_burst
 
 from document_intelligence.config import get_settings
 from document_intelligence.model_provider.fake import FakeModelProvider
@@ -21,7 +22,6 @@ from document_intelligence.model_provider.types import (
 )
 from document_intelligence.pipeline import PipelineDeps
 from document_intelligence.schema_registry import SchemaRegistry
-from support import run_worker_burst
 
 INVOICE_SCHEMA = {
     "title": "Invoice",

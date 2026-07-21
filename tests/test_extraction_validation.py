@@ -6,6 +6,8 @@ lands the Document in `extraction_failed` rather than retrying unboundedly.
 import json
 from pathlib import Path
 
+from test_walking_skeleton import AUTH_HEADERS, INVOICE_SCHEMA, _one_page_pdf, _run_worker
+
 from document_intelligence.model_provider.fake import FakeModelProvider
 from document_intelligence.model_provider.types import (
     DocumentClassification,
@@ -19,7 +21,6 @@ from document_intelligence.pipeline import (
     extraction_validation_errors,
 )
 from document_intelligence.schema_registry import SchemaRegistry
-from test_walking_skeleton import AUTH_HEADERS, INVOICE_SCHEMA, _one_page_pdf, _run_worker
 
 _VALID = ExtractionResult(
     (ExtractedField("invoiceNumber", "INV-100", 0.97), ExtractedField("vendorName", "Acme Corp", 0.92))

@@ -109,7 +109,7 @@ class AnthropicModelProvider:
             tools=[tool],
             tool_choice={"type": "tool", "name": tool["name"]},
             messages=[{"role": "user", "content": content}],
-        )
+        )  # type: ignore[call-overload]  # built from dict[str, Any], not the SDK's TypedDicts
         latency_ms = (time.monotonic() - start) * 1000
 
         result = _tool_input(response, tool["name"])
@@ -200,7 +200,9 @@ def _document_classification_tool(document_types: Sequence[DocumentTypeSchema]) 
                 "documentTypeName": _document_type_name_property(document_types),
                 "schemaVersion": {
                     "type": "integer",
-                    "description": "The matched Document Type's Schema version. Required when matched is true.",
+                    "description": (
+                        "The matched Document Type's Schema version. Required when matched is true."
+                    ),
                 },
                 "confidence": {
                     "type": "number",
