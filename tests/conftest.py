@@ -8,6 +8,25 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from document_intelligence.db import make_engine
 from document_intelligence.main import app
+from document_intelligence.redis_client import make_redis
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def flush_redis() -> AsyncIterator[None]:
+    """Flush the `arq`/queue-related Redis DB after every test, mirroring the Postgres
+    TRUNCATE in `db_session_factory` below: without this, keys left behind by `arq`
+    accumulate across pytest invocations against the same shared Redis instance and
+    eventually make unrelated tests fail (#30).
+
+    Like `db_session_factory`, this points at the same local Redis the dev docker-compose
+    stack uses (there's no separate test instance/DB index) — flushing it is this repo's
+    established convention for local dev+test sharing infra, not a new risk.
+    """
+    try:
+        yield
+    finally:
+        async with make_redis() as client:
+            await client.flushdb()
 
 
 @pytest_asyncio.fixture
