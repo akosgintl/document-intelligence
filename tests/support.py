@@ -14,8 +14,14 @@ async def run_worker_burst(*, redis_url: str, deps: PipelineDeps) -> None:
     async def process_job(ctx: dict, job_id: str) -> None:
         await pipeline.process_job(deps, job_id)
 
+    async def extract_document(ctx: dict, document_id: str) -> None:
+        await pipeline.process_document_extraction(deps, document_id)
+
     worker = Worker(
-        functions=[func(process_job, name="process_job")],
+        functions=[
+            func(process_job, name="process_job"),
+            func(extract_document, name="extract_document"),
+        ],
         redis_settings=RedisSettings.from_dsn(redis_url),
         burst=True,
         poll_delay=0.1,

@@ -110,20 +110,32 @@ async def process_job(deps: PipelineDeps, job_id: str) -> None:
 
                 document = Document(job=job)
                 session.add(document)
+                document.classification_confidence = document_classification.confidence
 
                 if document_classification.document_type_name is None:
                     document.status = DocumentStatus.UNCLASSIFIED
                 else:
-                    document.status = DocumentStatus.CLASSIFIED
                     document.document_type_name = document_classification.document_type_name
                     document.schema_version = document_classification.schema_version
-                    await _extract_and_validate(
-                        session=session,
-                        document=document,
-                        provider_pages=group_provider_pages,
-                        model_provider=deps.model_provider,
-                        schema_registry=deps.schema_registry,
+                    registered = deps.schema_registry.get(
+                        document_classification.document_type_name,
+                        document_classification.schema_version,
                     )
+                    assert document_classification.confidence is not None, (
+                        "Model Provider contract: confidence is required whenever "
+                        "document_type_name is set"
+                    )
+                    if document_classification.confidence < registered.confidence_threshold:
+                        document.status = DocumentStatus.CLASSIFICATION_NEEDS_REVIEW
+                    else:
+                        document.status = DocumentStatus.CLASSIFIED
+                        await extract_and_validate(
+                            session=session,
+                            document=document,
+                            provider_pages=group_provider_pages,
+                            model_provider=deps.model_provider,
+                            schema_registry=deps.schema_registry,
+                        )
 
                 for page_number, rendered in enumerate(group, start=1):
                     session.add(
@@ -173,7 +185,7 @@ def decide_extraction(*, attempt_number: int, errors: Sequence[str]) -> Extracti
     return ExtractionDecision.FAIL
 
 
-async def _extract_and_validate(
+async def extract_and_validate(
     *,
     session: AsyncSession,
     document: Document,
@@ -183,7 +195,13 @@ async def _extract_and_validate(
 ) -> None:
     """Extract per the bound Schema, retrying exactly once on validation failure with the
     errors fed back into the prompt — a second failure lands the Document in
-    `extraction_failed` rather than retrying unboundedly (#24)."""
+    `extraction_failed` rather than retrying unboundedly (#24). A validated result whose
+    Fields are all above the bound Schema's Confidence Threshold lands in `extracted`; any
+    Field below it lands in `extraction_needs_review` instead (#26).
+
+    Shared by the automated pipeline (`process_job`) and by `process_document_extraction`,
+    which runs this same step for a Document a Review just assigned a Document Type to.
+    """
     assert document.document_type_name is not None, "caller must classify before extracting"
     registered = schema_registry.get(document.document_type_name, document.schema_version)
 
@@ -211,11 +229,64 @@ async def _extract_and_validate(
             )
         )
 
-    document.status = DocumentStatus.EXTRACTED
+    needs_review = any(
+        extracted_field.confidence < registered.confidence_threshold
+        for extracted_field in extraction.fields
+    )
+    document.status = (
+        DocumentStatus.EXTRACTION_NEEDS_REVIEW if needs_review else DocumentStatus.EXTRACTED
+    )
+
+
+async def process_document_extraction(deps: PipelineDeps, document_id: str) -> None:
+    """Run automated Extraction for a Document a Review resolution (ADR-0003) just assigned a
+    Document Type to — the resolved Document proceeds through Extraction exactly like any
+    other freshly `classified` Document. Never touches the Document's Job status: resolving a
+    Document after its Job already reached `complete` must never reopen the Job (ADR-0003).
+    """
+    async with deps.session_factory() as session:
+        document = await _load_document(session, document_id)
+        if document is None or document.status != DocumentStatus.CLASSIFIED:
+            # At-least-once queue delivery means a redelivered task against a Document already
+            # moved on (or not actually awaiting Extraction) must be a safe no-op.
+            return
+
+        recorder_token = current_model_call_recorder.set(
+            PersistingModelCallRecorder(session_factory=deps.session_factory, job_id=document.job_id)
+        )
+        try:
+            provider_pages = [
+                ProviderPage(
+                    image_bytes=await get_object_bytes(
+                        deps.s3_client, bucket=deps.bucket, key=page.storage_key
+                    ),
+                    media_type=page.media_type,
+                )
+                for page in document.pages
+            ]
+            await extract_and_validate(
+                session=session,
+                document=document,
+                provider_pages=provider_pages,
+                model_provider=deps.model_provider,
+                schema_registry=deps.schema_registry,
+            )
+            await session.commit()
+        finally:
+            current_model_call_recorder.reset(recorder_token)
 
 
 async def _load_job(session: AsyncSession, job_id: str) -> Job | None:
     result = await session.execute(
         select(Job).where(Job.id == uuid.UUID(job_id)).options(selectinload(Job.submission))
+    )
+    return result.scalar_one_or_none()
+
+
+async def _load_document(session: AsyncSession, document_id: str) -> Document | None:
+    result = await session.execute(
+        select(Document)
+        .where(Document.id == uuid.UUID(document_id))
+        .options(selectinload(Document.pages))
     )
     return result.scalar_one_or_none()

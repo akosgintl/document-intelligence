@@ -22,15 +22,15 @@ class JobStatus(str, enum.Enum):
 
 
 class DocumentStatus(str, enum.Enum):
-    """See CONTEXT.md's Document lifecycle. `classification_needs_review` and
-    `extraction_needs_review` don't exist yet — that's #26.
-    """
+    """See CONTEXT.md's Document lifecycle."""
 
     PENDING = "pending"
     CLASSIFIED = "classified"
     UNCLASSIFIED = "unclassified"
+    CLASSIFICATION_NEEDS_REVIEW = "classification_needs_review"
     EXTRACTED = "extracted"
     EXTRACTION_FAILED = "extraction_failed"
+    EXTRACTION_NEEDS_REVIEW = "extraction_needs_review"
 
 
 class ModelCallType(str, enum.Enum):
@@ -111,6 +111,10 @@ class Document(Base):
     )
     document_type_name: Mapped[str | None] = mapped_column(String, nullable=True)
     schema_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # The document-level Classification call's self-reported Confidence (CONTEXT.md) — null
+    # only when unclassified, since an unmatched call reports no Document Type to be
+    # confident about.
+    classification_confidence: Mapped[float | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = _created_at()
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 

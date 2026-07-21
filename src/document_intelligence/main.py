@@ -6,6 +6,7 @@ from arq.connections import RedisSettings
 from fastapi import Depends, FastAPI, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from document_intelligence.api.documents import router as documents_router
 from document_intelligence.api.errors import ApiError, api_error_handler
 from document_intelligence.api.jobs import router as jobs_router
 from document_intelligence.api.submissions import router as submissions_router
@@ -29,6 +30,7 @@ app = FastAPI(title="document-intelligence", lifespan=lifespan)
 app.add_exception_handler(ApiError, api_error_handler)  # type: ignore[arg-type]  # narrower than Starlette's Exception-typed handler signature, the standard FastAPI pattern
 app.include_router(submissions_router)
 app.include_router(jobs_router)
+app.include_router(documents_router)
 
 
 @app.get("/health")

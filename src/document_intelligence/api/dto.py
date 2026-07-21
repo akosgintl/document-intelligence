@@ -11,6 +11,9 @@ class SubmissionAccepted(BaseModel):
     status: str
 
 
+_FIELDS_VISIBLE_STATUSES = {DocumentStatus.EXTRACTED, DocumentStatus.EXTRACTION_NEEDS_REVIEW}
+
+
 class DocumentResult(BaseModel):
     document_id: uuid.UUID
     status: str
@@ -27,10 +30,27 @@ class DocumentResult(BaseModel):
             schema_version=document.schema_version,
             fields=(
                 {field.name: field.value for field in document.fields}
-                if document.status == DocumentStatus.EXTRACTED
+                if document.status in _FIELDS_VISIBLE_STATUSES
                 else None
             ),
         )
+
+
+class DocumentReviewRequest(BaseModel):
+    """Body for `POST /v1/documents/{document_id}/review` (ADR-0003). Which key is expected
+    depends on the Document's current status, not on the request itself:
+
+    - `classification_needs_review` expects `document_type` (a registered Document Type name,
+      or `null` to confirm `unclassified`).
+    - `extraction_needs_review`/`extraction_failed` expect `fields`, a complete replacement
+      Field-value set.
+
+    Both are optional here so one shared model covers either shape; the endpoint checks
+    `model_fields_set` to tell "omitted" apart from "explicitly null".
+    """
+
+    document_type: str | None = None
+    fields: dict[str, Any] | None = None
 
 
 class JobResult(BaseModel):

@@ -6,6 +6,7 @@ from fastapi import Header, Request
 
 from document_intelligence.api.errors import AuthError
 from document_intelligence.config import get_settings
+from document_intelligence.schema_registry import SchemaRegistry
 from document_intelligence.storage import get_s3_client
 
 _BEARER_PREFIX = "Bearer "
@@ -28,3 +29,10 @@ async def s3_client_dependency() -> AsyncIterator[object]:
 
 def get_arq_pool(request: Request) -> ArqRedis:
     return request.app.state.arq_pool
+
+
+def get_schema_registry() -> SchemaRegistry:
+    """Loaded fresh per request, like `get_settings()` — not cached on `app.state`, so a
+    test's overridden `SCHEMA_REGISTRY_DIR` (via `monkeypatch`/`get_settings.cache_clear()`)
+    takes effect without needing to restart the app's lifespan."""
+    return SchemaRegistry.load(get_settings().schema_registry_dir)

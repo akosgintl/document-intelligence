@@ -38,6 +38,11 @@ class NotFoundError(ApiError):
     code = "not_found"
 
 
+class ConflictError(ApiError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "conflict"
+
+
 async def api_error_handler(request: Request, exc: ApiError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
