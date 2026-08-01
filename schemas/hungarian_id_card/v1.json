@@ -1,0 +1,80 @@
+{
+  "title": "Hungarian Identity Card",
+  "description": "The Hungarian national identity card (személyazonosító igazolvány), an ID-1 sized card bearing the printed title SZEMÉLYAZONOSÍTÓ IGAZOLVÁNY together with the words IDENTITY CARD in another official EU language. It carries the holder's photograph and a machine-readable zone, and prints the holder's mother's name, place and date of birth, and nationality as a three-letter country code. Cards issued to Hungarian citizens are blue; cards issued to settled, refugee or protected-status holders are yellow and are the same document type. Both the current chip-bearing card (issued from 2016) and the earlier laminated card (issued 2000-2016) are this document type; the earlier card has no chip, no card access number and no QR code. Distinguish from the Hungarian driving licence, which prints a table of vehicle categories, and from the Hungarian address card, which has no photograph and no machine-readable zone.",
+  "type": "object",
+  "properties": {
+    "surname": {
+      "type": "string",
+      "description": "The holder's current family name, exactly as printed, with accents preserved. When the card also shows a separate birth name, this is the current family name, not the name at birth."
+    },
+    "givenNames": {
+      "type": "string",
+      "description": "The holder's given name(s), exactly as printed and in the printed order, with accents preserved."
+    },
+    "birthName": {
+      "type": ["string", "null"],
+      "description": "The holder's name at birth (születési név), printed only when it differs from the current name — commonly on the card of a married holder, whose current name may carry the -né suffix. Null when the card shows no separate birth name."
+    },
+    "mothersName": {
+      "type": "string",
+      "description": "The holder's mother's name (anyja neve), exactly as printed, with accents preserved."
+    },
+    "dateOfBirth": {
+      "type": "string",
+      "format": "date",
+      "description": "The holder's date of birth, normalized to YYYY-MM-DD. The printed form on the card may differ from this; convert it. If the year is printed with only two digits, resolve the century to the one that places the date in the past. Far earlier than the issue and expiry dates."
+    },
+    "placeOfBirth": {
+      "type": "string",
+      "description": "The holder's place of birth, exactly as printed, with accents preserved."
+    },
+    "sex": {
+      "type": ["string", "null"],
+      "description": "The holder's sex or gender designation, transcribed exactly as printed. Hungarian documents may print a national-language initial rather than M or F. Null when the card face shows no sex or gender designation, which is permitted."
+    },
+    "nationality": {
+      "type": "string",
+      "description": "The holder's nationality, printed as a three-letter country code (HUN for a Hungarian citizen). Transcribe the code exactly as printed; do not expand it to a country name."
+    },
+    "documentNumber": {
+      "type": "string",
+      "description": "The card's own document identifier (okmányazonosító): six digits followed by two letters, for example 123456AA. This is not the card access number (see can), which is six digits with no letters, and not the holder's eleven-digit personal identification number (személyi azonosító), which is not printed on the card face at all."
+    },
+    "dateOfIssue": {
+      "type": "string",
+      "format": "date",
+      "description": "The date the card was issued (kiállítás ideje), normalized to YYYY-MM-DD. The printed form on the card may differ from this; convert it. If the year is printed with only two digits, resolve the century to the one that places the date in the past. Precedes the expiry date."
+    },
+    "dateOfExpiry": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "The date the card ceases to be valid (érvényességi idő), normalized to YYYY-MM-DD. The printed form on the card may differ from this; convert it. If the year is printed with only two digits, resolve the century to the one that places the date after the issue date. Follows the issue date. Null when the card face shows no expiry date — do not derive or estimate it from the issue date."
+    },
+    "issuingAuthority": {
+      "type": "string",
+      "description": "The name of the authority that issued the card, exactly as printed."
+    },
+    "can": {
+      "type": ["string", "null"],
+      "description": "The card access number (kódszám, CAN): a six-digit code with no letters, present only on chip-bearing cards issued from 2016 onward, and printed on the photograph side. This is not the document identifier (see documentNumber), which ends in two letters. Null on a card that shows no card access number."
+    },
+    "mrz": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "string"
+      },
+      "description": "The machine-readable zone, one array element per printed MRZ line, characters transcribed verbatim including the < filler characters. Transcribe as many lines as are printed. Do not compute, correct or verify the check digits, and do not split the zone into its component fields — the identity values are read from the printed card face instead. Null on a card that has no machine-readable zone, such as one issued to a non-citizen."
+    }
+  },
+  "required": [
+    "surname",
+    "givenNames",
+    "mothersName",
+    "dateOfBirth",
+    "placeOfBirth",
+    "nationality",
+    "documentNumber",
+    "dateOfIssue",
+    "issuingAuthority"
+  ]
+}
