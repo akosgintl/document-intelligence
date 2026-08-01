@@ -257,6 +257,7 @@ def _extraction_tool(document_type: DocumentTypeSchema) -> dict[str, Any]:
         }
         for field_name, field_schema in source_properties.items()
     }
+    source_required: Sequence[str] = document_type.json_schema.get("required", [])
     return {
         "name": "extract_fields",
         "description": (
@@ -266,7 +267,18 @@ def _extraction_tool(document_type: DocumentTypeSchema) -> dict[str, Any]:
         "input_schema": {
             "type": "object",
             "properties": properties,
-            "required": list(properties.keys()),
+            # The Schema's own required list, not every Field (#45): forcing an optional Field
+            # present makes the model invent a value or emit `null` against a type that doesn't
+            # admit it, costing a retry and then `extraction_failed`.
+            #
+            # Names with no matching `properties` entry are dropped only to keep this tool
+            # schema coherent — nothing validates Schema files structurally at load, and a
+            # stale name would otherwise ask the model for a key described nowhere, whose
+            # arbitrary shape `extract`'s `_require` would raise on, escalating a bad Schema
+            # from one Document's failure to the whole Job's (ADR-0005). Dropping it rescues
+            # nothing: `extraction_validation_errors` still validates against the unfiltered
+            # Schema, so such a Document fails exactly as it did before #45.
+            "required": [name for name in source_required if name in properties],
         },
     }
 
@@ -296,7 +308,8 @@ def _extraction_prompt(
 ) -> str:
     prompt = (
         f"Extract the {document_type.name} Fields from these Pages, per the Schema given in "
-        "the extract_fields tool."
+        "the extract_fields tool. Where a Field the Document doesn't show accepts null, give "
+        "it as null rather than omitting it, so its absence is recorded explicitly."
     )
     if validation_errors:
         errors = "\n".join(f"- {error}" for error in validation_errors)

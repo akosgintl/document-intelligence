@@ -6,6 +6,7 @@ Provider swapped for `FakeModelProvider` — per this repo's Testing Decisions.
 import io
 import json
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pypdfium2 as pdfium
@@ -23,7 +24,7 @@ from document_intelligence.model_provider.types import (
 from document_intelligence.pipeline import PipelineDeps
 from document_intelligence.schema_registry import SchemaRegistry
 
-INVOICE_SCHEMA = {
+INVOICE_SCHEMA: dict[str, Any] = {
     "title": "Invoice",
     "description": "A commercial invoice.",
     "type": "object",

@@ -28,12 +28,20 @@ _VALID = ExtractionResult(
 _MISSING_VENDOR = ExtractionResult((ExtractedField("invoiceNumber", "INV-100", 0.97),))
 
 
-def _write_registry(root: Path) -> SchemaRegistry:
+def _write_registry(root: Path, schema: dict | None = None) -> SchemaRegistry:
     type_dir = root / "invoice"
     type_dir.mkdir()
     (type_dir / "config.json").write_text(json.dumps({"confidence_threshold": 0.8}))
-    (type_dir / "v1.json").write_text(json.dumps(INVOICE_SCHEMA))
+    (type_dir / "v1.json").write_text(json.dumps(schema or INVOICE_SCHEMA))
     return SchemaRegistry.load(root)
+
+
+# `schemas/invoice/v1.json`'s exact shape: an optional Field that is *not* a nullable union,
+# so `null` wouldn't validate for it either (#45).
+_SCHEMA_WITH_A_NON_NULLABLE_OPTIONAL_FIELD = {
+    **INVOICE_SCHEMA,
+    "properties": {**INVOICE_SCHEMA["properties"], "invoiceDate": {"type": "string"}},
+}
 
 
 # --- Pure validate/retry decision logic -------------------------------------------------
@@ -116,6 +124,45 @@ async def test_a_valid_retry_after_one_validation_failure_lands_in_extracted(
     assert first_errors == ()
     assert len(second_errors) == 1
     assert "vendorName" in second_errors[0]
+
+
+async def test_an_omitted_optional_field_extracts_without_a_retry(
+    api_client, db_session_factory, tmp_path
+):
+    """The downstream half of #45: an omitted optional Field validates first try, so a Document
+    that genuinely lacks one reaches `extracted` rather than a retry then `extraction_failed`.
+
+    This half always held — `FakeModelProvider` never builds a tool schema, so this passes
+    against the pre-#45 provider too. What #45 changed is the half that made omission
+    *reachable*: `test_extract_requires_only_the_fields_the_source_schema_requires`
+    (`test_model_provider_anthropic.py`) covers the tool no longer forcing the Field present.
+    Together they are the path a real `schemas/invoice/v1.json` invoice with no printed date
+    now takes.
+    """
+    registry = _write_registry(tmp_path, _SCHEMA_WITH_A_NON_NULLABLE_OPTIONAL_FIELD)
+    provider = FakeModelProvider(
+        page_classifications=[PageClassification("invoice")],
+        document_classifications=[DocumentClassification("invoice", 1, 0.95)],
+        extractions=[_VALID],  # no invoiceDate at all
+    )
+
+    response = await api_client.post(
+        "/v1/submissions",
+        headers=AUTH_HEADERS,
+        files={"file": ("invoice.pdf", _one_page_pdf(), "application/pdf")},
+    )
+    job_id = response.json()["job_id"]
+
+    await _run_worker(
+        session_factory=db_session_factory, schema_registry=registry, model_provider=provider
+    )
+
+    response = await api_client.get(f"/v1/jobs/{job_id}", headers=AUTH_HEADERS)
+    document = response.json()["documents"][0]
+    assert document["status"] == "extracted"
+    assert "invoiceDate" not in document["fields"]
+
+    assert len(provider.extraction_calls) == 1
 
 
 async def test_a_second_validation_failure_lands_the_document_in_extraction_failed(

@@ -24,11 +24,27 @@ INVOICE = DocumentTypeSchema(
         "properties": {
             "invoiceNumber": {"type": "string", "description": "Unique invoice identifier."},
             "totalAmount": {"type": "number"},
+            "invoiceDate": {"type": ["string", "null"], "description": "Null when unprinted."},
         },
+        "required": ["invoiceNumber", "totalAmount"],
     },
 )
 RECEIPT = DocumentTypeSchema(
     name="Receipt", schema_version=1, json_schema={"title": "Receipt", "description": "A receipt."}
+)
+NOTE = DocumentTypeSchema(
+    name="Note",
+    schema_version=1,
+    json_schema={"title": "Note", "properties": {"body": {"type": "string"}}},
+)
+NOTE_WITH_STALE_REQUIRED = DocumentTypeSchema(
+    name="Note",
+    schema_version=1,
+    json_schema={
+        "title": "Note",
+        "properties": {"body": {"type": "string"}},
+        "required": ["body", "removedField"],
+    },
 )
 PAGE = Page(image_bytes=b"\x89PNG-fake-bytes", media_type="image/png")
 
@@ -150,6 +166,58 @@ async def test_extract_wraps_each_source_property_with_a_confidence_field():
         "description": "Unique invoice identifier.",
     }
     assert invoice_number_schema["properties"]["confidence"]["type"] == "number"
+
+
+async def test_extract_requires_only_the_fields_the_source_schema_requires():
+    """A Field the Schema leaves optional must be omittable from the tool call (#45) — see
+    `_extraction_tool` for why forcing it present costs the Document."""
+    client = _client_returning(
+        "extract_fields", {"invoiceNumber": {"value": "INV-1", "confidence": 0.9}}
+    )
+    provider = AnthropicModelProvider(client)
+
+    await provider.extract([PAGE], INVOICE)
+
+    tool_schema = client.messages.create.await_args.kwargs["tools"][0]
+    assert tool_schema["input_schema"]["required"] == ["invoiceNumber", "totalAmount"]
+
+
+async def test_extract_requires_no_fields_when_the_source_schema_requires_none():
+    client = _client_returning("extract_fields", {"body": {"value": "hi", "confidence": 0.9}})
+    provider = AnthropicModelProvider(client)
+
+    await provider.extract([PAGE], NOTE)
+
+    tool_schema = client.messages.create.await_args.kwargs["tools"][0]
+    assert tool_schema["input_schema"]["required"] == []
+
+
+async def test_extract_drops_required_names_absent_from_the_schemas_properties():
+    """Keeps the emitted tool schema coherent — see `_extraction_tool` for why, and for why
+    this rescues no Document."""
+    client = _client_returning("extract_fields", {"body": {"value": "hi", "confidence": 0.9}})
+    provider = AnthropicModelProvider(client)
+
+    await provider.extract([PAGE], NOTE_WITH_STALE_REQUIRED)
+
+    tool_schema = client.messages.create.await_args.kwargs["tools"][0]
+    assert tool_schema["input_schema"]["required"] == ["body"]
+
+
+async def test_extract_prompt_asks_for_null_over_omission_where_the_schema_allows_null():
+    """Optional Fields being omittable doesn't make omission the intent: a nullable Field's
+    absence stays an explicit, Confidence-carrying `fields` row (ADR-0010)."""
+    client = _client_returning(
+        "extract_fields", {"invoiceNumber": {"value": "INV-1", "confidence": 0.9}}
+    )
+    provider = AnthropicModelProvider(client)
+
+    await provider.extract([PAGE], INVOICE)
+
+    call = client.messages.create.await_args.kwargs
+    [message] = call["messages"]
+    [text_block] = [block for block in message["content"] if block["type"] == "text"]
+    assert "null" in text_block["text"]
 
 
 async def test_extract_feeds_previous_validation_errors_back_into_the_prompt():
