@@ -1,0 +1,66 @@
+{
+  "title": "Hungarian Address Card",
+  "description": "The Hungarian address card (lakcímkártya, lakcímigazolvány), the official document certifying a person's registered address together with their personal identification number. An ID-1 sized card printed on both faces, carrying no photograph, no machine-readable zone and no expiry date — it is valid indefinitely. By law the personal identification number and the address are printed on opposite faces, so that the two cannot be read at the same time; a complete capture of this document therefore shows both faces. It is issued to Hungarian citizens and also to settled, refugee, protected-status and EEA free-movement holders. Distinguish from the Hungarian identity card, which carries a photograph and a machine-readable zone and prints no address at all, and from the Hungarian driving licence, which carries a photograph and a table of vehicle categories.",
+  "type": "object",
+  "properties": {
+    "surname": {
+      "type": "string",
+      "description": "The holder's current family name, exactly as printed, with accents preserved. Hungarian cards print the family name before the given names. When the card also shows a separate birth name, this is the current family name, not the name at birth."
+    },
+    "givenNames": {
+      "type": "string",
+      "description": "The holder's given name(s), exactly as printed and in the printed order, with accents preserved. Where the card prints the whole name on a single line, these are the name elements that follow the family name."
+    },
+    "birthName": {
+      "type": ["string", "null"],
+      "description": "The holder's name at birth (születési név), printed only when it differs from the current name — commonly on the card of a married holder, whose current name may carry the -né suffix. Null when the card shows no separate birth name."
+    },
+    "mothersName": {
+      "type": ["string", "null"],
+      "description": "The holder's mother's name (anyja neve), exactly as printed, with accents preserved. Null when the card face shows no mother's name."
+    },
+    "dateOfBirth": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "The holder's date of birth, normalized to YYYY-MM-DD. The printed form on the card may differ from this; convert it. If the year is printed with only two digits, resolve the century to the one that places the date in the past. Where the card prints place and date of birth together on one line, take only the date part. Far earlier than the issue date. Null when the card face shows no date of birth."
+    },
+    "placeOfBirth": {
+      "type": ["string", "null"],
+      "description": "The holder's place of birth, exactly as printed, with accents preserved. Where the card prints place and date of birth together on one line, take only the place part. Null when the card face shows no place of birth."
+    },
+    "personalIdentifier": {
+      "type": "string",
+      "description": "The holder's personal identification number (személyi azonosító): eleven digits, printed in three hyphen-separated groups, for example 1-820315-4321. This is not the card's own document identifier (see documentNumber), which identifies the physical card rather than the holder. By law it is printed on the face opposite the address, so look for it on the face that does not show the address. Transcribe it exactly as printed, including the hyphens; do not decode the digits or derive any other value from them, and do not read it from the card's barcode."
+    },
+    "documentNumber": {
+      "type": "string",
+      "description": "The card's own document identifier (okmányazonosító), which identifies this physical card rather than the holder, and which changes when a replacement card is issued to the same person. This is not the holder's eleven-digit personal identification number (see personalIdentifier), which is printed in three hyphen-separated groups. Transcribe it exactly as printed."
+    },
+    "residence": {
+      "type": "string",
+      "description": "The holder's registered permanent address (lakóhely), transcribed exactly as printed with accents preserved, and with the printed lines joined by a single space. Do not reorder, expand or abbreviate any part of it, and do not split it into postal code, settlement and street components. Where the card shows two addresses, this is the permanent one, not the temporary residence (see temporaryResidence)."
+    },
+    "temporaryResidence": {
+      "type": ["string", "null"],
+      "description": "The holder's registered temporary address (tartózkodási hely), transcribed exactly as printed with accents preserved, and with the printed lines joined by a single space. Do not reorder, expand or abbreviate any part of it, and do not split it into postal code, settlement and street components. This is a second address, distinct from the permanent registered address (see residence), and is present only when the holder has registered one. Null when the card shows only one address."
+    },
+    "issuingAuthority": {
+      "type": "string",
+      "description": "The name of the authority that issued the card, exactly as printed."
+    },
+    "dateOfIssue": {
+      "type": "string",
+      "format": "date",
+      "description": "The date the card was issued, normalized to YYYY-MM-DD. The printed form on the card may differ from this; convert it. If the year is printed with only two digits, resolve the century to the one that places the date in the past. This card carries no expiry date at all — do not read any other date on it as an expiry, and do not derive one."
+    }
+  },
+  "required": [
+    "surname",
+    "givenNames",
+    "personalIdentifier",
+    "documentNumber",
+    "residence",
+    "issuingAuthority",
+    "dateOfIssue"
+  ]
+}
