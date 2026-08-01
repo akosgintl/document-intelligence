@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# PRADO specimen captures — © Council of the EU, not redistributable (see issue #47)
+docs/prado/
