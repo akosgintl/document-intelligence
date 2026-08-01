@@ -1,0 +1,98 @@
+{
+  "title": "Hungarian Driving Licence",
+  "description": "The Hungarian driving licence (vezetői engedély), an ID-1 sized pink polycarbonate card following the European Union harmonised model. The front bears the words European Driving Licence in a horizontal stripe across the top third, the words Vezetői engedély together with the equivalent in the other official EU languages in the lower third, the holder's photograph and signature, and the holder's personal data beside small printed numbers 1 to 8. The back carries the licence's distinguishing feature: a table of the vehicle categories the holder may drive, one row per category, under printed headings 9, 10, 11 and 12, giving the category code with its own first-issue date, expiry date and restriction codes. Front and back may arrive as separate Pages of one Document. It has no machine-readable zone and does not print the holder's mother's name, which distinguishes it from the Hungarian identity card; it carries a photograph, which distinguishes it from the Hungarian address card.",
+  "type": "object",
+  "properties": {
+    "surname": {
+      "type": "string",
+      "description": "The holder's family name, printed at heading 1, exactly as printed and with accents preserved."
+    },
+    "givenNames": {
+      "type": "string",
+      "description": "The holder's given name(s), printed at heading 2, exactly as printed and in the printed order, with accents preserved."
+    },
+    "dateOfBirth": {
+      "type": "string",
+      "format": "date",
+      "description": "The holder's date of birth, printed at heading 3 together with the place of birth, normalized to YYYY-MM-DD. The printed form may differ from this; convert it. If the year is printed with only two digits, resolve the century to the one that places the date in the past. Far earlier than the issue and expiry dates."
+    },
+    "placeOfBirth": {
+      "type": "string",
+      "description": "The holder's place of birth, printed at heading 3 together with the date of birth, exactly as printed and with accents preserved. Transcribe only the place, not the date printed alongside it."
+    },
+    "documentNumber": {
+      "type": "string",
+      "description": "The licence's own number, printed at heading 5. This is the number identifying the document itself, not any date and not the separate administrative number some licences print at heading 4d."
+    },
+    "dateOfIssue": {
+      "type": "string",
+      "format": "date",
+      "description": "The date the licence as a whole was issued, printed at heading 4a, normalized to YYYY-MM-DD. The printed form may differ from this; convert it. If the year is printed with only two digits, resolve the century to the one that places the date in the past. This is the issue date of the document, not the per-category first-issue dates printed at heading 10 on the back."
+    },
+    "dateOfExpiry": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "The date the licence as a whole ceases to be valid, printed at heading 4b, normalized to YYYY-MM-DD. The printed form may differ from this; convert it. If the year is printed with only two digits, resolve the century to the one that places the date after the issue date. Follows the issue date. Null when a dash is printed instead of a date, which means the licence is valid indefinitely — do not derive or estimate a date from the issue date, and do not take a value from the per-category expiry dates at heading 11."
+    },
+    "issuingAuthority": {
+      "type": "string",
+      "description": "The name of the authority that issued the licence, printed at heading 4c, exactly as printed. It may appear on either side of the card."
+    },
+    "address": {
+      "type": ["string", "null"],
+      "description": "The holder's permanent place of residence, printed at heading 8, transcribed exactly as printed with accents preserved and the printed lines joined with a single space. Null when the licence prints no address — do not infer one from anything else on the card."
+    },
+    "nationality": {
+      "type": ["string", "null"],
+      "description": "The holder's nationality, printed as a three-letter country code (HUN for a Hungarian citizen). Transcribe the code exactly as printed; do not expand it to a country name. It falls outside the numbered headings 1 to 12. Null when the licence prints no such code."
+    },
+    "categories": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "properties": {
+          "categoryCode": {
+            "type": "string",
+            "description": "The vehicle category code for this row, printed under heading 9, exactly as printed. It is one of the EU harmonised codes AM, A1, A2, A, B1, B, BE, C1, C1E, C, CE, D1, D1E, D or DE, or one of the Hungarian national codes K, T, M, TR or V, which are printed in a different typeface from the harmonised ones. Transcribe the code exactly: A, A1 and A2 are distinct, as are B, B1 and BE, and C, C1, CE and C1E."
+          },
+          "dateOfFirstIssue": {
+            "type": "string",
+            "format": "date",
+            "description": "The date this category was first granted to the holder, printed under heading 10, normalized to YYYY-MM-DD. It is printed as two-digit day, month and year separated by dots (DD.MM.YY); resolve the century to the one that places the date in the past. This date is carried over unchanged when a licence is replaced, so it may be far earlier than the licence's own issue date."
+          },
+          "dateOfExpiry": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "The date this category ceases to be valid, printed under heading 11, normalized to YYYY-MM-DD. It is printed as two-digit day, month and year separated by dots (DD.MM.YY); resolve the century to the one that places the date after this row's first-issue date. Null when this row's expiry cell is blank or shows a dash — do not derive a value from the first-issue date, from another row, or from the licence's own expiry date."
+          },
+          "restrictionCodes": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "string"
+            },
+            "description": "The additional-information and restriction codes printed under heading 12 facing this category row, one array element per code, each transcribed exactly as printed. Codes 01 to 99 are EU harmonised; codes 100 and above are Hungary-specific. A code may carry a parameter embedded in the code itself, which is part of the code and must be kept, as in 20.07(300N), 69(01.01.2016) or 70.0123456789.NL. Do not expand a code to its meaning. Null when no code faces this row. Codes printed once as applying to every category belong in generalRestrictionCodes instead."
+          }
+        },
+        "required": ["categoryCode", "dateOfFirstIssue", "dateOfExpiry", "restrictionCodes"]
+      },
+      "description": "One entry per row of the vehicle category table, printed under headings 9 to 12 on the back of the card, in the printed order. Null when the back of the card is not among the Pages — do not infer categories from anything printed on the front."
+    },
+    "generalRestrictionCodes": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "string"
+      },
+      "description": "Restriction codes printed once as applying to every category the licence covers, rather than facing a single row of the category table, one array element per code and each transcribed exactly as printed. The same code conventions apply as for a row's restrictionCodes, including embedded parameters. Null when every printed code faces a specific category row — do not repeat row codes here."
+    }
+  },
+  "required": [
+    "surname",
+    "givenNames",
+    "dateOfBirth",
+    "placeOfBirth",
+    "documentNumber",
+    "dateOfIssue",
+    "issuingAuthority",
+    "categories"
+  ]
+}
