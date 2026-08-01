@@ -34,6 +34,14 @@ Pulling structured Field data out of a classified Document, in one model call gi
 One top-level property of a Document Type's Schema — the unit Extraction produces a value for, and that Confidence and Review each address individually. A Field's own nested structure (e.g. an array of line items) isn't decomposed further: Confidence and Review operate on the Field as a whole, not on values nested inside it.
 _Avoid_: Property (as domain vocabulary, when a Schema's top-level Field is meant — fine as plain English for JSON Schema structure generally).
 
+**VIZ** (Visual Inspection Zone):
+The human-readable printed face of an identity document — the zone every identity Field is read from. Preferred over the MRZ as the extraction source: it carries accented names as printed and includes data the MRZ omits.
+_Avoid_: Data page, biographic page.
+
+**MRZ** (Machine Readable Zone):
+The block of fixed-format characters an identity document carries per ICAO Doc 9303 — a redundant re-encoding of data already printed in the VIZ, whose value is the check digits that let a caller verify what was read. Modelled as one opaque Field holding the characters verbatim, never decomposed into its constituent parts, since a check digit the system computed rather than transcribed verifies nothing.
+_Avoid_: Machine code, barcode, OCR line.
+
 **Confidence**:
 A score in [0,1] the Model Provider attaches to a single decision — the Document Type assigned at document-level Classification, or one Field value produced at Extraction. Layered, not a single number per Document: a Document has one Classification Confidence and, once extracted, one Confidence per extracted Field. Obtained via the Provider's self-reported certainty — emitted as a field in the same Classification/Extraction call, at no extra cost — not via token-probability/logprobs (not exposed by the Provider's API) or repeated-sampling agreement (a real technique, deferred pending evidence self-reported confidence needs augmenting; see ADR-0008).
 
