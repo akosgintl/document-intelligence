@@ -42,6 +42,10 @@ _Avoid_: Data page, biographic page.
 The block of fixed-format characters an identity document carries per ICAO Doc 9303 — a redundant re-encoding of data already printed in the VIZ, whose value is the check digits that let a caller verify what was read. Modelled as one opaque Field holding the characters verbatim, never decomposed into its constituent parts, since a check digit the system computed rather than transcribed verifies nothing.
 _Avoid_: Machine code, barcode, OCR line.
 
+**NAV Online Számla**:
+Hungary's real-time invoice reporting system, whose `invoiceData` XSD (namespace version 3.0) defines the data an issuer must report to the tax authority for every invoice. It shapes the invoice Schema's Field set because NAV's reporting requirements largely track what the VAT Act already obliges an invoice to print — but only largely: some reported data is never printed (the exchange rate, and the submission's own metadata), and is therefore not extractable and not modelled. The Schema's job is to capture what the page shows, leaving the caller to assemble the report.
+_Avoid_: Online Invoice, NAV XML (as domain vocabulary — the 2026 EN 16931 mandatory e-invoicing obligation is a separate scheme, not this one).
+
 **Confidence**:
 A score in [0,1] the Model Provider attaches to a single decision — the Document Type assigned at document-level Classification, or one Field value produced at Extraction. Layered, not a single number per Document: a Document has one Classification Confidence and, once extracted, one Confidence per extracted Field. Obtained via the Provider's self-reported certainty — emitted as a field in the same Classification/Extraction call, at no extra cost — not via token-probability/logprobs (not exposed by the Provider's API) or repeated-sampling agreement (a real technique, deferred pending evidence self-reported confidence needs augmenting; see ADR-0008).
 

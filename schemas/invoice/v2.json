@@ -1,0 +1,160 @@
+{
+  "title": "Invoice",
+  "description": "A commercial invoice requesting payment for goods or services, naming the party issuing it and the party billed, itemizing one or more lines, and stating a total amount payable. Typically laid out as a header block of parties, dates and an invoice number, a table of line items, and a totals block at the foot. A Hungarian invoice (számla) additionally prints the seller's and usually the buyer's tax number (adószám) in the 12345678-1-42 form, a delivery date (teljesítés) alongside the issue date, and a VAT breakdown table showing net, VAT and gross subtotals per VAT rate. A simplified invoice (egyszerűsített számla) is this same document type: it prints gross amounts only, with a VAT content rate (ÁFA tartalom) in place of a VAT rate, and no net or VAT figures. Distinguish from a receipt or delivery note, which requests no payment, and from identity documents such as the Hungarian identity card, which bear a photograph and a machine-readable zone.",
+  "type": "object",
+  "properties": {
+    "invoiceNumber": {
+      "type": "string",
+      "description": "The invoice's own sequential identifier, exactly as printed, including any prefix, year segment or separators — for example 2026/A/00123. On a Hungarian invoice this is the sorszám. This is not the buyer's order or purchase-order number, not a customer account number, and not either party's tax number."
+    },
+    "invoiceDate": {
+      "type": "string",
+      "format": "date",
+      "description": "The date the invoice was issued (kiállítás dátuma), normalized to YYYY-MM-DD. The printed form may differ; convert it. An invoice commonly prints three dates close together — take the one labelled as the date of issue, not the delivery date and not the payment deadline."
+    },
+    "deliveryDate": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "The date the goods were supplied or the service completed (teljesítés dátuma), normalized to YYYY-MM-DD. The printed form may differ; convert it. Null when the invoice prints no separate delivery date — do not copy the issue date into it. A caller that needs a delivery date applies that default itself."
+    },
+    "paymentDueDate": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "The date by which payment falls due (fizetési határidő), normalized to YYYY-MM-DD. The printed form may differ; convert it. Follows the issue date. Null when the invoice prints no deadline, as on one settled immediately in cash or by card. Do not derive it from a payment term stated in words."
+    },
+    "paymentMethod": {
+      "type": ["string", "null"],
+      "description": "How the invoice is to be paid, transcribed exactly as printed — for example átutalás, készpénz, bankkártya, utánvét. Do not translate it and do not map it to a code. Null when the invoice states no payment method."
+    },
+    "currency": {
+      "type": "string",
+      "description": "The currency every amount on the invoice is expressed in, transcribed as printed — for example Ft, HUF, EUR. Transcribe the printed form rather than converting it to an ISO 4217 code. Amounts elsewhere in this Schema are always in this currency and are never converted, even when the invoice also shows a converted figure or an exchange rate."
+    },
+    "sellerName": {
+      "type": "string",
+      "description": "The name of the party issuing the invoice and owed the payment (eladó, szállító, kibocsátó), exactly as printed, with accents preserved. This is not the party being billed (see buyerName), and not the bank."
+    },
+    "sellerTaxNumber": {
+      "type": ["string", "null"],
+      "description": "The seller's tax identifier, transcribed exactly as printed including any separators. On a Hungarian invoice this is the adószám: eight digits, a single VAT-code digit and a two-digit county code, printed as 12345678-1-42. A community VAT number (HU12345678) or a foreign registration number is transcribed as printed instead. Null when the invoice shows no tax identifier for the seller. This is not the seller's bank account number and not a company registration number (cégjegyzékszám)."
+    },
+    "sellerAddress": {
+      "type": "string",
+      "description": "The seller's address as a single string, exactly as printed and in the printed order, with accents preserved; join printed lines with a single space. Do not split it into postcode, city and street, and do not reorder or expand any part of it."
+    },
+    "sellerBankAccountNumber": {
+      "type": ["string", "null"],
+      "description": "The account the payment is to be made to, transcribed exactly as printed including separators — a Hungarian domestic number in two or three eight-digit groups (12345678-12345678 or 12345678-12345678-12345678), or an IBAN. Null when the invoice prints no account number, as on one settled in cash or by card. This is not the seller's tax number."
+    },
+    "buyerName": {
+      "type": ["string", "null"],
+      "description": "The name of the party being billed (vevő), exactly as printed, with accents preserved. Null when the invoice names no buyer, which is legitimate on a retail or simplified invoice made out to an unnamed customer."
+    },
+    "buyerTaxNumber": {
+      "type": ["string", "null"],
+      "description": "The buyer's tax identifier, transcribed exactly as printed including any separators, in the same forms described for sellerTaxNumber. Null when the invoice shows none — legitimate when the buyer is a private individual, and common on retail and simplified invoices."
+    },
+    "buyerAddress": {
+      "type": ["string", "null"],
+      "description": "The buyer's address as a single string, exactly as printed and in the printed order, with accents preserved; join printed lines with a single space. Do not split it into parts. Null when the invoice prints no address for the buyer. Where separate billing and delivery addresses are printed, this is the billing address."
+    },
+    "lineItems": {
+      "type": "array",
+      "description": "One entry per line printed in the invoice's item table, in the printed order. Every property below is present on every entry, with null wherever the invoice does not print that value for that line: a line billed as a lump sum shows no quantity or unit price, and a line on a simplified invoice shows only a gross amount. Do not merge, split, reorder or invent lines, and do not compute a null value from the others.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": ["string", "null"],
+            "description": "The name or description of the goods or service on this line, exactly as printed, with accents preserved. Null when the line prints no description."
+          },
+          "quantity": {
+            "type": ["number", "null"],
+            "description": "The quantity billed on this line, as a JSON number with any thousands separator removed and a decimal comma read as a decimal point. Null when the line states no quantity."
+          },
+          "unitOfMeasure": {
+            "type": ["string", "null"],
+            "description": "The unit the quantity is expressed in, transcribed exactly as printed — for example db, óra, kg, hónap, m2. Do not translate it and do not map it to a code. Null when the line states no unit."
+          },
+          "unitPrice": {
+            "type": ["number", "null"],
+            "description": "The price of a single unit on this line, as a JSON number with separators and any currency symbol stripped and a decimal comma read as a decimal point. Gross on a simplified invoice, net otherwise. Null when the line states no unit price."
+          },
+          "netAmount": {
+            "type": ["number", "null"],
+            "description": "This line's amount before VAT, as a JSON number with separators and any currency symbol stripped and a decimal comma read as a decimal point. Null when the line prints no net amount — the case on a simplified invoice, which prints gross amounts only."
+          },
+          "vatRate": {
+            "type": ["string", "null"],
+            "description": "The VAT treatment of this line, transcribed exactly as printed. Usually a percentage (27%, 18%, 5%, 0%). A line that is exempt, outside the scope of VAT, or reverse-charged prints a marking or a legal reference instead — for example AAM, TAM, fordított adózás, Áfa tv. 87.§ a) — and that is what to transcribe. On a simplified invoice the figure printed is a VAT content rate (ÁFA tartalom, for example 21,26%) rather than a VAT rate; transcribe it as printed without converting it. Null when the line shows no VAT information at all."
+          },
+          "vatAmount": {
+            "type": ["number", "null"],
+            "description": "The VAT charged on this line, as a JSON number with separators and any currency symbol stripped and a decimal comma read as a decimal point. Null when the line prints no VAT amount — the case on a simplified invoice, and on an exempt or reverse-charged line that carries no VAT."
+          },
+          "grossAmount": {
+            "type": ["number", "null"],
+            "description": "This line's amount including VAT, as a JSON number with separators and any currency symbol stripped and a decimal comma read as a decimal point. Null when the line prints no gross amount — common where the item table shows net amounts only and the gross figure appears solely in the totals block."
+          }
+        },
+        "required": [
+          "description",
+          "quantity",
+          "unitOfMeasure",
+          "unitPrice",
+          "netAmount",
+          "vatRate",
+          "vatAmount",
+          "grossAmount"
+        ]
+      }
+    },
+    "vatSummary": {
+      "type": ["array", "null"],
+      "description": "The invoice's VAT breakdown table, one entry per VAT rate or VAT treatment shown, in the printed order — the block usually printed above or beside the totals, showing net, VAT and gross subtotals per rate. Transcribe the printed rows only: do not build this by grouping and summing the line items, and do not reconcile or correct a discrepancy between the printed rows and the line items, which legitimately disagree by rounding. Every property is present on every entry, with null where that row prints no such figure. Null when the invoice prints no VAT breakdown table.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "vatRate": {
+            "type": ["string", "null"],
+            "description": "The VAT rate or treatment this row aggregates, transcribed exactly as printed, in the same forms described for a line item's vatRate. Null when the row is unlabelled."
+          },
+          "netAmount": {
+            "type": ["number", "null"],
+            "description": "The net subtotal for this rate, as a JSON number with separators and any currency symbol stripped and a decimal comma read as a decimal point. Null when the row prints no net subtotal, as on a simplified invoice."
+          },
+          "vatAmount": {
+            "type": ["number", "null"],
+            "description": "The VAT subtotal for this rate, as a JSON number with separators and any currency symbol stripped and a decimal comma read as a decimal point. Null when the row prints no VAT subtotal."
+          },
+          "grossAmount": {
+            "type": ["number", "null"],
+            "description": "The gross subtotal for this rate, as a JSON number with separators and any currency symbol stripped and a decimal comma read as a decimal point. Null when the row prints no gross subtotal."
+          }
+        },
+        "required": ["vatRate", "netAmount", "vatAmount", "grossAmount"]
+      }
+    },
+    "netTotal": {
+      "type": ["number", "null"],
+      "description": "The invoice-wide total before VAT, as printed in the totals block, as a JSON number with separators and any currency symbol stripped and a decimal comma read as a decimal point. Transcribe the printed figure; do not compute it by summing the line items or the VAT summary. Null when the invoice prints no net total — the case on a simplified invoice, which prints a gross total only."
+    },
+    "vatTotal": {
+      "type": ["number", "null"],
+      "description": "The invoice-wide total VAT, as printed in the totals block, as a JSON number with separators and any currency symbol stripped and a decimal comma read as a decimal point. Transcribe the printed figure; do not compute it. Null when the invoice prints no VAT total, as on a simplified invoice or one that is wholly exempt."
+    },
+    "grossTotal": {
+      "type": "number",
+      "description": "The total amount payable including VAT — the bottom-line figure the buyer owes (fizetendő összeg) — as a JSON number with separators and any currency symbol stripped and a decimal comma read as a decimal point. Transcribe the printed figure; do not compute it by summing anything, and where the invoice prints both a rounded payable amount and an unrounded total, take the amount stated as payable."
+    }
+  },
+  "required": [
+    "invoiceNumber",
+    "invoiceDate",
+    "currency",
+    "sellerName",
+    "sellerAddress",
+    "lineItems",
+    "grossTotal"
+  ]
+}
