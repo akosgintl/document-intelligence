@@ -1,0 +1,79 @@
+{
+  "title": "Hungarian Passport",
+  "description": "The data page of a Hungarian passport (útlevél): a booklet page bearing the holder's photograph, field captions printed in Hungarian, English and French together, and a machine-readable zone of two long character lines across the foot of the page. Ordinary, diplomatic, official and service passports are all this document type — they print the same field set and differ only in the document code. Distinguish from the Hungarian identity card, which is a card rather than a booklet page and prints the holder's mother's name, from the Hungarian driving licence, which prints a table of vehicle categories, and from the Hungarian address card, which has no photograph and no machine-readable zone.",
+  "type": "object",
+  "properties": {
+    "surname": {
+      "type": "string",
+      "description": "The holder's current family name (családi név), exactly as printed, with accents preserved. When the page also shows a separate birth name, this is the current family name, not the name at birth."
+    },
+    "givenNames": {
+      "type": "string",
+      "description": "The holder's given name(s) (utónév), exactly as printed and in the printed order, with accents preserved."
+    },
+    "birthName": {
+      "type": ["string", "null"],
+      "description": "The holder's name at birth (születési név), printed only when it differs from the current name — commonly on the passport of a married holder. This is a complete name, family and given parts together, not a family name alone, so it is not simply an alternative to surname. Null when the page shows no separate birth name."
+    },
+    "dateOfBirth": {
+      "type": "string",
+      "format": "date",
+      "description": "The holder's date of birth (születési idő), normalized to YYYY-MM-DD. The printed form on the page may differ from this — the month is commonly a three-letter abbreviation given in two languages and the year is commonly two digits; convert it. If the year is printed with only two digits, resolve the century to the one that places the date in the past. Far earlier than the issue and expiry dates."
+    },
+    "placeOfBirth": {
+      "type": "string",
+      "description": "The holder's place of birth (születési hely), exactly as printed, with accents preserved. A trailing numeric district or locality code may follow the settlement name; transcribe it as part of the value rather than dropping it."
+    },
+    "sex": {
+      "type": "string",
+      "description": "The holder's sex (nem), transcribed exactly as printed. A Hungarian passport prints the Hungarian initial, then an oblique, then the English or French letter — for example N/F for a female holder (nő). Transcribe the whole printed value including the oblique; do not reduce it to a single letter and do not translate it."
+    },
+    "nationality": {
+      "type": "string",
+      "description": "The holder's nationality (állampolgárság), transcribed exactly as printed. A Hungarian passport prints this as words in two languages, for example MAGYAR/HUNGARIAN, and not as a three-letter country code. Transcribe the printed words; do not replace them with a country code, even though the machine-readable zone carries the code form of the same fact."
+    },
+    "documentCode": {
+      "type": "string",
+      "description": "The code identifying which kind of passport this is (típus): a single letter P on older passports, or two letters on passports issued under the newer harmonized scheme — PP for an ordinary passport, PD for diplomatic, PO for official or service. Transcribe exactly what is printed, one letter or two; do not expand a lone P. This is not the three-letter country code printed beside it, and not the passport number (see documentNumber), which contains digits."
+    },
+    "documentNumber": {
+      "type": "string",
+      "description": "The passport's own number (útlevélszám): two uppercase letters followed by six or seven digits, for example BD0002028. This is not the document code (see documentCode), which is one or two letters and no digits, and not the holder's eleven-digit personal identification number (személyi azonosító), which is not printed on the page at all."
+    },
+    "dateOfIssue": {
+      "type": "string",
+      "format": "date",
+      "description": "The date the passport was issued (kiállítás kelte), normalized to YYYY-MM-DD. The printed form on the page may differ from this; convert it. If the year is printed with only two digits, resolve the century to the one that places the date in the past. Precedes the expiry date."
+    },
+    "dateOfExpiry": {
+      "type": "string",
+      "format": "date",
+      "description": "The date the passport ceases to be valid (lejárat ideje), normalized to YYYY-MM-DD. The printed form on the page may differ from this; convert it. If the year is printed with only two digits, resolve the century to the one that places the date after the issue date. Follows the issue date. Read it as printed; do not derive or estimate it from the issue date."
+    },
+    "issuingAuthority": {
+      "type": "string",
+      "description": "The name of the authority that issued the passport (kiállító hatóság), exactly as printed. It is commonly an abbreviation of a longer body name; transcribe the abbreviation as printed and do not expand it."
+    },
+    "mrz": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "The machine-readable zone across the foot of the page, one array element per printed line — two lines of forty-four characters. Transcribe the characters verbatim, including the < filler characters. Do not compute, correct or verify the check digits, and do not split the zone into its component fields — the identity values are read from the printed page instead. The names in this zone are stripped of accents and may be truncated, so they will not always match the printed surname and given names; transcribe what is in the zone rather than reconciling the two."
+    }
+  },
+  "required": [
+    "surname",
+    "givenNames",
+    "dateOfBirth",
+    "placeOfBirth",
+    "sex",
+    "nationality",
+    "documentCode",
+    "documentNumber",
+    "dateOfIssue",
+    "dateOfExpiry",
+    "issuingAuthority",
+    "mrz"
+  ]
+}
