@@ -8,7 +8,7 @@ built around (#46, convention 3).
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, assert_never
 
 from fixtures.model import Example, Face, Mrz, Row, Table
 
@@ -22,11 +22,15 @@ def _face_fields(face: Face) -> dict[str, Any]:
             case Mrz():
                 fields[element.into] = list(element.lines)
             case Table():
-                unprinted = dict.fromkeys(element.absent)
+                unprinted = dict.fromkeys(element.absent_keys)
                 fields[element.into] = [
                     unprinted | {key: value for cell in row for key, value in cell.fields.items()}
                     for row in element.rows
                 ]
+            case _:
+                # A new element type must project as well as draw. mypy fails here rather than
+                # letting a drawn value go unasserted — `render.py` carries the same guard.
+                assert_never(element)
     return fields
 
 

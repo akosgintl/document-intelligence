@@ -7,9 +7,12 @@ asserted against it cannot drift apart (#46, convention 7). Regenerate everythin
     uv run python -m fixtures.generate
 
 This module is the public surface — author a data table out of these names, and the two
-projections follow. `catalogue.py` imports nothing else, and neither should a new one.
+projections follow. `catalogue.py` imports from here and from nowhere else, and neither should
+a new one: `identifiers` and `fonts` are re-exported below precisely so that authoring never
+has to reach past this module into the internals.
 """
 
+from fixtures import fonts, identifiers
 from fixtures.expectations import expectation, extracted_fields
 from fixtures.model import Cell, Column, Example, Face, Mrz, Row, Submission, Table
 from fixtures.render import FixtureDoesNotFit, render_pdf_bytes, render_png_bytes, render_submission
@@ -27,6 +30,8 @@ __all__ = [
     "Table",
     "expectation",
     "extracted_fields",
+    "fonts",
+    "identifiers",
     "render_pdf_bytes",
     "render_png_bytes",
     "render_submission",

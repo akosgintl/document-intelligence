@@ -113,9 +113,13 @@ def personal_identifier(*, sex_code: int, date_of_birth: date, serial: int) -> s
 #
 # Printed as `12345678-12345678`, or with a third group where the account needs one. Every group
 # stands alone: weight its eight digits 9,7,3,1,9,7,3,1 and the products sum to a multiple of
-# ten, which makes the eighth digit of each group its check digit. The first group is a real
-# bank's routing code, so breaking its check digit is what stops a fixture naming an actual
-# branch as well as what stops it naming an actual account.
+# ten, which makes the eighth digit of each group its check digit.
+#
+# The first group's first seven digits are a routing code — three digits of bank, four of branch
+# — and breaking a check digit cannot make those seven anything other than what they are, so a
+# fixture cannot avoid resembling *some* real branch. What the broken eighth digit buys is that
+# the printed number is not a valid account number anywhere, which is what stops it colliding
+# with somebody's actual account.
 
 
 def bank_account_check_digit(base: str) -> str:

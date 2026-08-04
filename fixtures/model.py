@@ -22,6 +22,16 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 
+def _freeze(instance: object, **values: Any) -> None:
+    """Assign onto a frozen dataclass from a hand-written `__init__`.
+
+    Both `Row` and `Cell` write their own `__init__` so that a data table can name Fields as
+    keyword arguments, and a frozen dataclass refuses ordinary assignment in one.
+    """
+    for name, value in values.items():
+        object.__setattr__(instance, name, value)
+
+
 @dataclass(frozen=True)
 class Row:
     """One printed label/value line, and the Fields its value proves.
@@ -37,9 +47,7 @@ class Row:
     # Hand-written so a data table can name Fields as keyword arguments, which is what makes it
     # read like the document rather than like a dict literal.
     def __init__(self, label: str, printed: str, **fields: Any) -> None:
-        object.__setattr__(self, "label", label)
-        object.__setattr__(self, "printed", printed)
-        object.__setattr__(self, "fields", dict(fields))
+        _freeze(self, label=label, printed=printed, fields=dict(fields))
 
 
 @dataclass(frozen=True)
@@ -50,8 +58,7 @@ class Cell:
     fields: Mapping[str, Any]
 
     def __init__(self, printed: str, **fields: Any) -> None:
-        object.__setattr__(self, "printed", printed)
-        object.__setattr__(self, "fields", dict(fields))
+        _freeze(self, printed=printed, fields=dict(fields))
 
 
 @dataclass(frozen=True)
@@ -69,20 +76,23 @@ class Table:
     columns: Sequence[Column]
     rows: Sequence[Sequence[Cell]]
     into: str
-    absent: Sequence[str] = ()
-    title: str = ""
-    """The caption printed above the table, where the document prints one.
-
-    A Hungarian invoice heads its VAT breakdown `ÁFA összesítő` but leaves the item table above
-    it uncaptioned, so two tables can abut with only one of them named. Proves no Field — it is
-    the label of a block, not of a value.
-    """
+    absent_keys: Sequence[str] = ()
     """Nested keys every row carries as null because the table prints no column for them.
 
     ADR-0010 requires every property of an array Field's rows to be listed `required` and to be
     a nullable union, so a row object must carry a key even where the page shows nothing — an
     item table printing net amounts only still owes `grossAmount: null`. Naming them here keeps
     that null a stated fact about the page rather than a gap in the expectation.
+
+    Named `absent_keys`, not `absent`, because `Example.absent` nulls whole top-level Fields
+    while this nulls a key inside every row of one.
+    """
+    title: str = ""
+    """The caption printed above the table, where the document prints one.
+
+    A Hungarian invoice heads its VAT breakdown `ÁFA összesítő` but leaves the item table above
+    it uncaptioned, so two tables can abut with only one of them named. Proves no Field — it is
+    the label of a block, not of a value.
     """
 
 
@@ -123,8 +133,9 @@ class Submission:
     spends on the atomic unit *inside* a Submission. All the faces here land on one Page.
 
     `style` picks the geometry, and is the only thing that differs between the four identity
-    types and an invoice; the element vocabulary above is shared by both. See `render.py` for
-    why the four identity types did not need a layout each.
+    types and an invoice; the element vocabulary above is shared by both. The four identity
+    types currently share one geometry — see `render.py` for what that costs and for #60, which
+    owns the decision.
     """
 
     faces: Sequence[Face]
