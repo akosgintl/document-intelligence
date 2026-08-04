@@ -1,0 +1,55 @@
+{
+  "document_type": "invoice",
+  "schema_version": 2,
+  "fields": {
+    "invoiceNumber": "2026/K/00517",
+    "invoiceDate": "2026-04-07",
+    "paymentMethod": "készpénz",
+    "currency": "Ft",
+    "sellerName": "Kőrisfa Papírbolt Kft.",
+    "sellerTaxNumber": "81037264-2-02",
+    "sellerAddress": "7621 Pécs, Király utca 8.",
+    "lineItems": [
+      {
+        "netAmount": null,
+        "vatAmount": null,
+        "description": "Írómappa A4",
+        "quantity": 3,
+        "unitOfMeasure": "db",
+        "unitPrice": 1290,
+        "vatRate": "21,26%",
+        "grossAmount": 3870
+      },
+      {
+        "netAmount": null,
+        "vatAmount": null,
+        "description": "Golyóstoll kék",
+        "quantity": 10,
+        "unitOfMeasure": "db",
+        "unitPrice": 249,
+        "vatRate": "21,26%",
+        "grossAmount": 2490
+      },
+      {
+        "netAmount": null,
+        "vatAmount": null,
+        "description": "Fűzőgép kapocs",
+        "quantity": 2,
+        "unitOfMeasure": "doboz",
+        "unitPrice": 890,
+        "vatRate": "21,26%",
+        "grossAmount": 1780
+      }
+    ],
+    "grossTotal": 8140,
+    "deliveryDate": null,
+    "paymentDueDate": null,
+    "sellerBankAccountNumber": null,
+    "buyerName": null,
+    "buyerTaxNumber": null,
+    "buyerAddress": null,
+    "vatSummary": null,
+    "netTotal": null,
+    "vatTotal": null
+  }
+}

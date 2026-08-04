@@ -5,6 +5,7 @@ fixture surface depends on — that Hungarian actually prints, that identifiers 
 collide with real ones, and that an example's page and its `expected.json` cannot drift apart.
 """
 
+import json
 import re
 from dataclasses import replace
 from datetime import date
@@ -17,10 +18,14 @@ from PIL import Image, ImageDraw
 from document_intelligence.schema_registry import SchemaRegistry
 from eval.run_eval import load_golden_examples
 from fixtures import (
+    Cell,
+    Column,
     Example,
     Face,
+    FixtureDoesNotFit,
     Row,
     Submission,
+    Table,
     expectation,
     extracted_fields,
     fonts,
@@ -30,7 +35,7 @@ from fixtures import (
     write_sample,
 )
 from fixtures.catalogue import EXAMPLES
-from fixtures.surfaces import REPO_ROOT, SAMPLE_ROOT
+from fixtures.surfaces import GOLDEN_ROOT, REPO_ROOT, SAMPLE_ROOT
 
 # Every accented character the five Document Types' values need. `ImageFont.load_default()`
 # draws all of these as one identical `.notdef` box (#46), which is why DejaVu is vendored.
@@ -73,6 +78,42 @@ def test_generated_personal_identifier_is_hyphen_grouped_but_fails_its_check_dig
     assert identifiers.personal_identifier_is_valid(
         f"2-820314-447{identifiers.personal_identifier_check_digit('2820314447')}"
     )
+
+
+def test_generated_bank_account_number_is_giro_grouped_but_fails_its_check_digit():
+    account = identifiers.bank_account_number("9876543", "1234567")
+
+    # Two eight-digit groups, hyphen-separated, as a Hungarian invoice prints one (#43's
+    # sellerBankAccountNumber description).
+    assert re.fullmatch(r"\d{8}-\d{8}", account)
+    assert not identifiers.bank_account_is_valid(account)
+    assert identifiers.bank_account_is_valid(
+        f"9876543{identifiers.bank_account_check_digit('9876543')}"
+        f"-1234567{identifiers.bank_account_check_digit('1234567')}"
+    )
+
+
+def test_bank_account_check_digit_closes_its_group_to_a_multiple_of_ten():
+    # The published rule is stated as a divisibility, not as a subtraction: weight an eight-digit
+    # group by 9,7,3,1,9,7,3,1 and the products must sum to a multiple of ten. Worked here over
+    # `1030000` + its check digit rather than trusting the constructor's own arithmetic.
+    check = identifiers.bank_account_check_digit("1030000")
+    weights = (9, 7, 3, 1, 9, 7, 3, 1)
+    total = sum(int(d) * w for d, w in zip(f"1030000{check}", weights, strict=True))
+
+    assert total % 10 == 0
+
+
+def test_bank_account_validity_is_judged_group_by_group():
+    sound = f"9876543{identifiers.bank_account_check_digit('9876543')}"
+    other = f"1234567{identifiers.bank_account_check_digit('1234567')}"
+    spoiled = f"{other[:7]}{(int(other[7]) + 1) % 10}"
+
+    # Each eight-digit group carries its own check digit, so one sound group must not vouch for
+    # a malformed neighbour, in either position.
+    assert identifiers.bank_account_is_valid(f"{sound}-{other}")
+    assert not identifiers.bank_account_is_valid(f"{sound}-{spoiled}")
+    assert not identifiers.bank_account_is_valid(f"{spoiled}-{other}")
 
 
 def test_icao_check_digit_follows_the_published_weighting():
@@ -168,13 +209,67 @@ def test_expectation_is_projected_from_the_same_rows_that_draw_the_page():
     }
 
 
+def _catalogued(key: str) -> Example:
+    matching = [example for example in EXAMPLES if example.key == key]
+    assert matching, f"no catalogued example keyed {key!r} — have {[e.key for e in EXAMPLES]}"
+    return matching[0]
+
+
 def test_a_table_carries_a_null_for_every_nested_key_it_prints_no_column_for():
-    line_items = extracted_fields(EXAMPLES[0])["lineItems"]
+    line_items = extracted_fields(_catalogued("invoice/sample"))["lineItems"]
 
     # ADR-0010 requires every nested property of an array Field to be present on every row, so a
     # column the page doesn't print still owes an explicit null rather than a missing key.
     assert [row["grossAmount"] for row in line_items] == [None, None]
     assert line_items[0]["netAmount"] == 102000
+
+
+def test_the_happy_path_prints_a_forint_of_rounding_disagreement_between_its_two_blocks():
+    fields = extracted_fields(_catalogued("invoice/happy_path"))
+    line_vat = sum(row["vatAmount"] or 0 for row in fields["lineItems"])
+    summary_vat = sum(row["vatAmount"] or 0 for row in fields["vatSummary"])
+    summary_gross = sum(row["grossAmount"] or 0 for row in fields["vatSummary"])
+
+    # #43 transcribes the ÁFA összesítő *and* the totals block though either could be derived
+    # from the other, because NAV documents the two legitimately disagreeing by rounding: the
+    # summary charges 27% on the summed net, the totals block adds up VAT already rounded per
+    # line. This fixture is the one that makes that concrete, so a future change that reconciles
+    # them — in the Schema, in the harness, or by "correcting" the data table — fails here
+    # instead of quietly passing.
+    assert fields["vatTotal"] == line_vat
+    assert summary_vat == fields["vatTotal"] - 1
+    assert summary_gross == fields["grossTotal"] - 1
+
+
+def test_no_field_records_that_the_simplified_invoice_is_simplified():
+    example = _catalogued("invoice/simplified")
+    fields = extracted_fields(example)
+
+    # The page says so twice — its title and its Áfa tv. 176. § note, as a real one does. What
+    # #43 settled is that *no Field* carries either, so an extracted Document is readable as
+    # simplified only by shape: a gross-only line with a null net.
+    printed = " ".join(line for face in example.submission.faces for line in face.title)
+    assert "EGYSZERŰSÍTETT" in printed
+    assert not any("egyszer" in str(value).lower() for value in fields.values())
+    assert all(row["netAmount"] is None and row["vatAmount"] is None for row in fields["lineItems"])
+    assert all(row["grossAmount"] is not None for row in fields["lineItems"])
+    assert (fields["netTotal"], fields["vatTotal"]) == (None, None)
+    # The whole array null, not rows of nulls — a simplified invoice prints no breakdown table.
+    assert fields["vatSummary"] is None
+    assert fields["grossTotal"] == 8140
+
+
+def test_vat_rate_carries_markings_an_enum_of_percentages_would_have_rejected():
+    rates = {
+        row["vatRate"]
+        for key in ("invoice/happy_path", "invoice/simplified")
+        for row in extracted_fields(_catalogued(key))["lineItems"]
+    }
+
+    # ADR-0010 refused `enum` outright, and `vatRate` is where that bites: a rate, a VAT-content
+    # share of the gross, an exemption marking and a reverse-charge marking all print in the same
+    # column. Anything narrower than a verbatim string fails a legitimate invoice.
+    assert {"27%", "21,26%", "fordított adózás", "TAM"} <= rates
 
 
 def test_rendering_the_same_example_twice_produces_identical_bytes():
@@ -183,6 +278,45 @@ def test_rendering_the_same_example_twice_produces_identical_bytes():
     # The images are committed, so a renderer that varied between runs would churn the repo on
     # every regeneration and make a real fixture change impossible to see in a diff.
     assert render_png_bytes(example) == render_png_bytes(example)
+
+
+def _one_cell_sheet(heading: str, printed: str, width: int) -> Example:
+    return Example(
+        key="probe/one_cell",
+        document_type="invoice",
+        schema_version=2,
+        submission=Submission(
+            style="sheet",
+            faces=(
+                Face(
+                    elements=(
+                        Table(
+                            into="lineItems",
+                            columns=(Column(heading, width),),
+                            rows=((Cell(printed, description=printed),),),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+
+def test_a_cell_wider_than_its_column_is_refused_rather_than_drawn_over_its_neighbour():
+    # The far commoner failure than a table overrunning the page: one long description slides
+    # under the next column's value, and both become unreadable while the expectation still
+    # asserts each of them.
+    with pytest.raises(FixtureDoesNotFit, match="Megnevezés"):
+        render_png_bytes(_one_cell_sheet("Megnevezés", "Építési-szerelési munkadíj, 2026. II. n.év", 200))
+
+
+def test_a_column_heading_too_wide_for_its_own_column_is_refused_too():
+    with pytest.raises(FixtureDoesNotFit, match="heading"):
+        render_png_bytes(_one_cell_sheet("ÁFA összeg mindösszesen", "27 635", 120))
+
+
+def test_a_cell_that_fits_its_column_draws_without_complaint():
+    assert render_png_bytes(_one_cell_sheet("Megnevezés", "Fenyő palló", 320)).startswith(b"\x89PNG")
 
 
 def _one_row_card(printed: str) -> Example:
@@ -237,6 +371,14 @@ def test_every_catalogued_example_asserts_only_fields_its_schema_defines(example
         jsonschema.validate(value, properties[name])
 
 
+@pytest.mark.parametrize("example", EXAMPLES, ids=lambda example: example.key)
+def test_every_catalogued_example_fits_the_page_it_is_drawn_into(example: Example):
+    # The renderer's refusals — a table wider than the page, a cell wider than its column, a face
+    # taller than its geometry — only fire while drawing, so a catalogue entry nothing renders is
+    # a catalogue entry nothing checks.
+    assert render_png_bytes(example).startswith(b"\x89PNG")
+
+
 @pytest.mark.parametrize(
     "example", [e for e in EXAMPLES if e.sample], ids=lambda example: example.key
 )
@@ -248,3 +390,16 @@ def test_the_committed_sample_matches_a_fresh_render(example: Example):
     assert committed == render_png_bytes(example), (
         f"{example.sample}.png is stale — regenerate it with `uv run python -m fixtures.generate`"
     )
+
+
+@pytest.mark.parametrize(
+    "example", [e for e in EXAMPLES if e.golden], ids=lambda example: example.key
+)
+def test_the_committed_golden_example_matches_a_fresh_projection(example: Example):
+    # A golden directory is what the billed eval run actually reads, so it is the copy that must
+    # not drift — and unlike the sample it was, until #56, never pinned to its data table at all.
+    directory = GOLDEN_ROOT / example.key
+    stale = f"eval/golden/{example.key} is stale — run `uv run python -m fixtures.generate`"
+
+    assert (directory / "submission.png").read_bytes() == render_png_bytes(example), stale
+    assert json.loads((directory / "expected.json").read_text()) == expectation(example), stale

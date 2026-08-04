@@ -1,0 +1,84 @@
+{
+  "document_type": "invoice",
+  "schema_version": 2,
+  "fields": {
+    "invoiceNumber": "2026/B/00417",
+    "invoiceDate": "2026-05-11",
+    "deliveryDate": "2026-04-30",
+    "paymentDueDate": "2026-05-25",
+    "paymentMethod": "átutalás",
+    "currency": "Ft",
+    "sellerName": "Fűrészáru és Építőanyag Zrt.",
+    "sellerTaxNumber": "24681354-2-08",
+    "sellerAddress": "9024 Győr, Bécsi út 122.",
+    "sellerBankAccountNumber": "62914700-38051626",
+    "buyerName": "Zöldövezet Építőipari Kft.",
+    "buyerTaxNumber": "35740918-2-05",
+    "buyerAddress": "3529 Miskolc, Tűzköves utca 7/B",
+    "lineItems": [
+      {
+        "grossAmount": null,
+        "description": "Fenyő palló",
+        "quantity": 250,
+        "unitOfMeasure": "fm",
+        "unitPrice": 409.4,
+        "netAmount": 102350,
+        "vatRate": "27%",
+        "vatAmount": 27635
+      },
+      {
+        "grossAmount": null,
+        "description": "Asztalosmunka",
+        "quantity": 12.5,
+        "unitOfMeasure": "óra",
+        "unitPrice": 5772,
+        "netAmount": 72150,
+        "vatRate": "27%",
+        "vatAmount": 19481
+      },
+      {
+        "grossAmount": null,
+        "description": "Építési munka",
+        "quantity": null,
+        "unitOfMeasure": null,
+        "unitPrice": null,
+        "netAmount": 4800000,
+        "vatRate": "fordított adózás",
+        "vatAmount": null
+      },
+      {
+        "grossAmount": null,
+        "description": "Raktárbérlet",
+        "quantity": 1,
+        "unitOfMeasure": "hónap",
+        "unitPrice": 65000,
+        "netAmount": 65000,
+        "vatRate": "TAM",
+        "vatAmount": null
+      }
+    ],
+    "vatSummary": [
+      {
+        "vatRate": "27%",
+        "netAmount": 174500,
+        "vatAmount": 47115,
+        "grossAmount": 221615
+      },
+      {
+        "vatRate": "fordított adózás",
+        "netAmount": 4800000,
+        "vatAmount": null,
+        "grossAmount": 4800000
+      },
+      {
+        "vatRate": "TAM",
+        "netAmount": 65000,
+        "vatAmount": null,
+        "grossAmount": 65000
+      }
+    ],
+    "netTotal": 5039500,
+    "vatTotal": 47116,
+    "grossTotal": 5086616
+  }
+}
