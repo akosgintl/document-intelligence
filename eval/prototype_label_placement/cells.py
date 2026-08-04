@@ -1,50 +1,53 @@
-"""PROTOTYPE — the nine cells of #60's design, in one place.
+"""PROTOTYPE — the 24 cells of #60's second design, in one place.
 
-Two axes, deliberately kept separate rather than crossed: placement varies a page's label
-layout on two Document Types that carry labels, and the legend varies whether a *third* type
-carries field names at all. Crossing them would mean drawing a licence at a label placement it
-has no labels for.
+Two crossed axes on two Document Types: 4 placements × 3 holder names × 2 documents. The
+driving licence is not here — its legend axis came back settled (12/12 Fields correct on every
+draw with no field names printed at all, p=1.000 on every pairing) and it prints `1.` and `2.`
+as separate rows, so it has no combined name line to vary.
 """
 
 from dataclasses import dataclass
 
-from pages import LEGEND_EXAMPLES, PLACEMENT_EXAMPLES, PLACEMENTS, at_placement
+from pages import HOLDERS, NAMES, PLACEMENTS, example
 
 from fixtures.model import Example
+
+DOCUMENTS: tuple[str, ...] = ("id_card", "address_card")
 
 
 @dataclass(frozen=True)
 class Cell:
-    """One (document, variant) pair — the unit both the probe and the analysis work in.
+    """One (document, name, placement) triple.
 
-    The cell, not the call, is the analysis unit. #49's method note is the reason: five draws of
-    one page are not five independent observations, and permuting individual calls instead
-    reported an axis effect at p=0.009 that replication showed was pseudoreplication.
+    Analysis pairs on (document, Field) and averages a cell's replicates first. #49's method
+    note is the reason: eight draws of one page are not eight independent observations, and
+    permuting individual calls instead reported an axis effect at p=0.009 that replication
+    showed was pseudoreplication.
     """
 
-    axis: str
     document: str
-    variant: str
+    name: str
+    placement: str
     example: Example
 
     @property
     def key(self) -> str:
-        return f"{self.document}-{self.variant}"
+        return f"{self.document}-{self.name}-{self.placement}"
+
+    @property
+    def holder(self) -> str:
+        """The full printed name this cell's page carries, for the record in each Observation."""
+        return HOLDERS[self.name][self.document].full
 
 
 CELLS: tuple[Cell, ...] = tuple(
-    [
-        Cell(
-            axis="placement",
-            document=document,
-            variant=placement,
-            example=at_placement(example, placement),
-        )
-        for document, example in PLACEMENT_EXAMPLES.items()
-        for placement in PLACEMENTS
-    ]
-    + [
-        Cell(axis="legend", document="driving_licence", variant=legend, example=example)
-        for legend, example in LEGEND_EXAMPLES.items()
-    ]
+    Cell(
+        document=document,
+        name=name,
+        placement=placement,
+        example=example(document, name, placement),
+    )
+    for document in DOCUMENTS
+    for name in NAMES
+    for placement in PLACEMENTS
 )

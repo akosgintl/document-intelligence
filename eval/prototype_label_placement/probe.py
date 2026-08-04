@@ -56,8 +56,9 @@ class Observation:
     """One billed Extraction, plus how the pipeline would have judged it."""
 
     document: str
-    axis: str
-    variant: str
+    name_arm: str
+    placement: str
+    holder: str
     document_type: str
     threshold: float
     status: str
@@ -135,8 +136,9 @@ async def extract(
     *,
     example: Example,
     document: str,
-    axis: str,
-    variant: str,
+    name_arm: str,
+    placement: str,
+    holder: str,
     registry: SchemaRegistry,
     client: anthropic.AsyncAnthropic,
     run: str | None = None,
@@ -183,8 +185,9 @@ async def extract(
 
     observation = Observation(
         document=document,
-        axis=axis,
-        variant=variant,
+        name_arm=name_arm,
+        placement=placement,
+        holder=holder,
         document_type=example.document_type,
         threshold=registered.confidence_threshold,
         status=_status(errors, confidences, registered.confidence_threshold),

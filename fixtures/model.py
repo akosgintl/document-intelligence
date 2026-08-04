@@ -43,11 +43,33 @@ class Row:
     label: str
     printed: str
     fields: Mapping[str, Any]
+    place: Literal["stacked", "inline", "column"] | None
+    """PROTOTYPE (#60): where this row's label sits, when the geometry defers to the row.
+
+    Ignored unless the geometry's `label_style` is `per_row`. #47 §6 is why it exists: the eID
+    identity card stacks its name, sets two fields inline on one row, and right-aligns three
+    more, so a placement chosen per Document Type cannot draw it.
+    """
+    align: Literal["left", "right"]
+    """Whether the value sits against the label or against the face's right margin.
+
+    The eID prints `Születési idő/Date of birth:` on the left and `30 06 1979` hard against the
+    card's right edge. Meaningless when the row is stacked, where the value starts under its
+    own label.
+    """
 
     # Hand-written so a data table can name Fields as keyword arguments, which is what makes it
     # read like the document rather than like a dict literal.
-    def __init__(self, label: str, printed: str, **fields: Any) -> None:
-        _freeze(self, label=label, printed=printed, fields=dict(fields))
+    def __init__(
+        self,
+        label: str,
+        printed: str,
+        *,
+        place: Literal["stacked", "inline", "column"] | None = None,
+        align: Literal["left", "right"] = "left",
+        **fields: Any,
+    ) -> None:
+        _freeze(self, label=label, printed=printed, fields=dict(fields), place=place, align=align)
 
 
 @dataclass(frozen=True)
@@ -122,7 +144,21 @@ class Legend:
     rotated: bool = True
 
 
-Element = Row | Table | Mrz | Legend
+@dataclass(frozen=True)
+class Pair:
+    """PROTOTYPE (#60) — two label/value pairs sharing one printed row.
+
+    The eID prints `Nem/Sex: N/F` on the left of a line and
+    `Állampolgárság/Nationality: HUN` on the right of the same line (#47 §6). Modelled as two
+    `Row`s rather than a four-tuple so each half keeps its own Fields and its own placement,
+    and so `expectations.py` can project it without knowing anything new.
+    """
+
+    left: Row
+    right: Row
+
+
+Element = Row | Table | Mrz | Legend | Pair
 
 
 @dataclass(frozen=True)
@@ -156,7 +192,7 @@ class Submission:
     """
 
     faces: Sequence[Face]
-    style: Literal["card", "sheet", "card_inline", "card_column"] = "card"
+    style: Literal["card", "sheet", "card_inline", "card_column", "card_specimen"] = "card"
     """PROTOTYPE (#60): `card_inline` and `card_column` are the same ID-1 card at the two label
     placements `card` cannot draw. They exist for `eval/prototype_label_placement/` to render
     the same data table three ways; no committed fixture names one."""

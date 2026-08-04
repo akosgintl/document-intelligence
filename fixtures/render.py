@@ -39,7 +39,7 @@ from PIL import Image, ImageDraw
 from PIL.ImageFont import FreeTypeFont
 
 from fixtures import fonts
-from fixtures.model import Example, Face, Legend, Mrz, Row, Submission, Table
+from fixtures.model import Example, Face, Legend, Mrz, Pair, Row, Submission, Table
 
 MARGIN = 36
 _INK = "black"
@@ -54,13 +54,17 @@ _MINIMUM_TYPE = 9
 # the values it names.
 _LEGEND_STRIP = 84
 
-LabelStyle = Literal["stacked", "inline", "column"]
+LabelStyle = Literal["stacked", "inline", "column", "per_row"]
 """Where a Row's label sits relative to its value.
 
 - `stacked` — label above value, which is what fits an ID-1 card: a bilingual label is far too
   long to sit beside a value in 85.6 mm.
 - `inline` — `label value` on one line, as the eID identity card sets it (#47).
 - `column` — a label column beside a value column, as the address card and an A4 invoice set it.
+- `per_row` — each `Row` carries its own, via `Row.place`. #47 §6 found that the eID identity
+  card and the address card each mix three placements on one face, so this is the only style
+  that can draw either of them; the other three force one placement onto every row, which is
+  what makes them usable as an experimental axis.
 """
 
 
@@ -157,11 +161,18 @@ SHEET = Geometry(
 CARD_INLINE = replace(CARD, label_style="inline")
 CARD_COLUMN = replace(CARD, label_style="column", value_column=330)
 
+# The fourth arm, and the only one that can draw either card as PRADO shows it: every row places
+# itself. #47 §6 is the evidence — the eID stacks its name, pairs two fields inline on one row,
+# and right-aligns three more, and the address card runs one label inline on the recto and
+# stacked on the verso. A uniform placement is an experimental control here, not a document.
+CARD_SPECIMEN = replace(CARD, label_style="per_row", value_column=330)
+
 GEOMETRIES: dict[str, Geometry] = {
     "card": CARD,
     "sheet": SHEET,
     "card_inline": CARD_INLINE,
     "card_column": CARD_COLUMN,
+    "card_specimen": CARD_SPECIMEN,
 }
 
 
@@ -187,7 +198,7 @@ def _fitted(
 
 def _draw_elements(
     draw: ImageDraw.ImageDraw,
-    elements: Sequence[Row | Table | Legend],
+    elements: Sequence[Row | Table | Legend | Pair],
     *,
     top: int,
     frame: Frame,
@@ -200,6 +211,12 @@ def _draw_elements(
                 y = _draw_row(draw, element, top=y, frame=frame)
             case Table():
                 y = _draw_table(draw, element, top=y, frame=frame)
+            case Pair():
+                half = Frame(frame.left, frame.left + frame.width // 2 - 8, frame.geometry)
+                other = Frame(frame.left + frame.width // 2 + 8, frame.right, frame.geometry)
+                _draw_row(draw, element.left, top=y, frame=half, rule=False)
+                y = _draw_row(draw, element.right, top=y, frame=other, rule=False)
+                _rule(draw, top=y - frame.geometry.row_height, frame=frame)
             case Legend():
                 y = _draw_flowed_legend(draw, element, top=y, frame=frame)
             case _:
@@ -224,6 +241,7 @@ def _draw_row(
     *,
     top: int,
     frame: Frame,
+    rule: bool = True,
 ) -> int:
     """Draw one label/value line at the geometry's label placement, returning the next y.
 
@@ -233,7 +251,9 @@ def _draw_row(
     the probe unable to say which of the two the model responded to.
     """
     geometry = frame.geometry
-    match geometry.label_style:
+    # `per_row` hands the choice to the row, defaulting to stacked for a row that does not care.
+    style = (row.place or "stacked") if geometry.label_style == "per_row" else geometry.label_style
+    match style:
         case "stacked":
             draw.text(
                 (frame.left, top),
@@ -247,7 +267,8 @@ def _draw_row(
                 font=_fitted(row.printed, frame.width, fonts.sans_bold, geometry.value),
                 fill=_INK,
             )
-            _rule(draw, top=top, frame=frame)
+            if rule:
+                _rule(draw, top=top, frame=frame)
         case "inline":
             # The label keeps its own size so the pair reads as label-then-value rather than as
             # one run of text; the value starts a gutter past wherever the label actually ends,
@@ -263,7 +284,8 @@ def _draw_row(
                 font=_fitted(row.printed, frame.right - value_left, fonts.sans_bold, geometry.value),
                 fill=_INK,
             )
-            _rule(draw, top=top, frame=frame)
+            if rule:
+                _rule(draw, top=top, frame=frame)
         case "column":
             value_left = frame.left + geometry.value_column
             draw.text(
@@ -274,15 +296,22 @@ def _draw_row(
                 ),
                 fill=_LABEL_INK,
             )
-            draw.text(
-                (value_left, top),
-                row.printed,
-                font=_fitted(row.printed, frame.right - value_left, fonts.sans_bold, geometry.value),
-                fill=_INK,
+            value_font = _fitted(
+                row.printed, frame.right - value_left, fonts.sans_bold, geometry.value
             )
-            _rule(draw, top=top, frame=frame)
+            # The eID prints its dates and document number hard against the card's right edge
+            # rather than at the label column's tab stop (#47 §6).
+            draw.text(
+                (frame.right if row.align == "right" else value_left, top),
+                row.printed,
+                font=value_font,
+                fill=_INK,
+                anchor="ra" if row.align == "right" else "la",
+            )
+            if rule:
+                _rule(draw, top=top, frame=frame)
         case _:
-            assert_never(geometry.label_style)
+            assert_never(style)
     return top + geometry.row_height
 
 

@@ -3,13 +3,13 @@
 
     uv run python eval/prototype_label_placement/run.py
 
-`[r]` renders all nine variants to `pages_rendered/` for free — **look at them before spending
-anything.** `[1]`–`[9]` fire one variant, `[a]` fires all nine once.
+`[r]` renders all 24 cells to `pages_rendered/` for free — **look at them before spending
+anything.** `[1]`–`[24]` fire one cell, `[a]` fires all 24 once.
 
 One pass of `[a]` is nine billed Extractions and is *not* the answer: `anthropic_provider.py`
 sets no `temperature`, so every call is a draw from a distribution rather than a reading. It is
 here to eyeball the shape of a result and catch a broken page before `sequence.py` spends
-seventy-two calls on the same mistake. The answer comes from `sequence.py`.
+a hundred and forty-four calls on the same mistake. The answer comes from `sequence.py`.
 """
 
 import asyncio
@@ -49,12 +49,13 @@ def _render_all() -> list[str]:
 
 def _frame(results: dict[str, Observation], note: str) -> None:
     print("\033[2J\033[H", end="")
-    print(f"{_BOLD}#60 — does label placement (and the licence's legend) reach Extraction?{_RESET}")
+    print(f"{_BOLD}#60 — placement x holder name, on the two cards that combine the name line{_RESET}")
     print(f"{_DIM}Each fired cell is one billed extract() call against claude-sonnet-5.{_RESET}\n")
 
     for index, cell in enumerate(CELLS, start=1):
         observation = results.get(cell.key)
-        head = f"  {_BOLD}[{index}]{_RESET} {cell.axis:<9} {cell.document:<13} {cell.variant:<11}"
+        head = (f"  {_BOLD}[{index:>2}]{_RESET} {cell.document:<13} "
+                f"{cell.name:<9} {cell.placement:<9}")
         if observation is None:
             print(f"{head} {_DIM}—{_RESET}")
             continue
@@ -70,8 +71,8 @@ def _frame(results: dict[str, Observation], note: str) -> None:
 
     print(f"\n{_DIM}{note}{_RESET}")
     print(
-        f"\n  {_BOLD}[r]{_RESET} render all (free)   {_BOLD}[1-9]{_RESET} fire one   "
-        f"{_BOLD}[a]{_RESET} fire all nine   {_BOLD}[q]{_RESET} quit"
+        f"\n  {_BOLD}[r]{_RESET} render all (free)   {_BOLD}[1-24]{_RESET} fire one   "
+        f"{_BOLD}[a]{_RESET} fire all 24   {_BOLD}[q]{_RESET} quit"
     )
 
 
@@ -89,8 +90,9 @@ async def _fire(cell: Cell, registry, client) -> Observation:
     return await extract(
         example=cell.example,
         document=cell.document,
-        axis=cell.axis,
-        variant=cell.variant,
+        name_arm=cell.name,
+        placement=cell.placement,
+        holder=cell.holder,
         registry=registry,
         client=client,
     )

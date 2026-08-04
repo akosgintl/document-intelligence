@@ -14,7 +14,18 @@ has to reach past this module into the internals.
 
 from fixtures import fonts, identifiers
 from fixtures.expectations import expectation, extracted_fields
-from fixtures.model import Cell, Column, Example, Face, Legend, Mrz, Row, Submission, Table
+from fixtures.model import (
+    Cell,
+    Column,
+    Example,
+    Face,
+    Legend,
+    Mrz,
+    Pair,
+    Row,
+    Submission,
+    Table,
+)
 from fixtures.render import FixtureDoesNotFit, render_pdf_bytes, render_png_bytes, render_submission
 from fixtures.surfaces import write_golden, write_sample
 
@@ -26,6 +37,7 @@ __all__ = [
     "FixtureDoesNotFit",
     "Legend",
     "Mrz",
+    "Pair",
     "Row",
     "Submission",
     "Table",

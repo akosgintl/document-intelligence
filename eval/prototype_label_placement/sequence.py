@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """PROTOTYPE — the randomized, replicated pass over #60's two axes. This is the answer.
 
-    uv run python eval/prototype_label_placement/sequence.py     # 72 billed calls, ~6 min
+    uv run python eval/prototype_label_placement/sequence.py     # 144 billed calls, ~15 min
 
 REPLICATES draws of all nine cells are shuffled into a single seeded order and fired
 sequentially, with each call's position recorded. Both halves of that are load-bearing, and #49
@@ -37,9 +37,9 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from cells import CELLS  # noqa: E402
 from probe import extract, load_api_key, load_registry  # noqa: E402
 
-REPLICATES = 8
+REPLICATES = 6
 SEED = 60  # The ticket number. Any fixed value works; a fixed one makes the order reproducible.
-RUN = "randomized-r8"
+RUN = "names-and-placement-r6"
 
 
 async def main() -> None:
@@ -58,8 +58,9 @@ async def main() -> None:
         observation = await extract(
             example=cell.example,
             document=cell.document,
-            axis=cell.axis,
-            variant=cell.variant,
+            name_arm=cell.name,
+            placement=cell.placement,
+            holder=cell.holder,
             registry=registry,
             client=client,
             run=RUN,
@@ -67,7 +68,7 @@ async def main() -> None:
         )
         flag = "" if observation.status == "extracted" else "  <-- !"
         print(
-            f"{index:>4}  {cell.document:<14}{cell.variant:<11}rep{replicate}  "
+            f"{index:>4}  {cell.document:<14}{cell.name:<9}{cell.placement:<10}rep{replicate}  "
             f"{observation.fields_correct}/{observation.fields_expected}  "
             f"{observation.mean_confidence:.3f}  {observation.status}{flag}",
             flush=True,
