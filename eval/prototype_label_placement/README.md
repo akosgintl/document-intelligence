@@ -91,6 +91,48 @@ All 33 existing `tests/test_fixture_renderer.py` cases still pass and no committ
 
 ## Findings
 
-*Not yet run. `sequence.py` has not been fired.*
+**72 billed Extractions**, `claude-sonnet-5`, run `randomized-r8`, seed 60. ~5,150 input / 737 output tokens and 7.3s per call. No session drift (first half 0.9435, second half 0.9428, Δ −0.0007), so the randomized order came back clean the way #49's did.
 
-Once it has, this section records: the per-cell accuracy and confidence with replicated ranges, the paired test for each axis, whether any variant ever landed a Document in `extraction_needs_review`, and — separately called out, because it is a free observation for [#54](https://github.com/akosgintl/document-intelligence/issues/54) rather than part of this probe's question — whether the licence's `DD.MM.YY.` category dates had their century inferred correctly, and at what Confidence.
+| axis | document | variant | accuracy | mean conf | statuses |
+|---|---|---|---|---|---|
+| legend | driving_licence | `absent` | **1.000** [1.000–1.000] | 0.931 | needs_review ×8 |
+| legend | driving_licence | `horizontal` | **1.000** [1.000–1.000] | 0.948 | needs_review ×8 |
+| legend | driving_licence | `rotated` | 0.969 [0.917–1.000] | 0.923 | needs_review ×8 |
+| placement | address_card | `stacked` | **0.990** [0.917–1.000] | 0.923 | extracted ×4 |
+| placement | address_card | `column` *(real)* | 0.958 [0.833–1.000] | 0.923 | extracted ×2 |
+| placement | address_card | `inline` | 0.938 [0.833–1.000] | 0.895 | extracted ×3 |
+| placement | id_card | `inline` *(real)* | 0.929 [0.929–0.929] | 0.943 | extracted ×7 |
+| placement | id_card | `column` | 0.920 [0.857–1.000] | 0.937 | extracted ×4 |
+| placement | id_card | `stacked` | **0.786** [0.714–1.000] | 0.925 | needs_review ×8 |
+
+### The answer, and it is not the one the ticket offered
+
+**The legend buys nothing measurable, and the rotated one is if anything worse.** The licence extracted **12 of 12 Fields correctly on all 8 draws with no field names printed anywhere on the card** — bare EU numbers `1.` `2.` `4a.` on the recto and a table headed `9. 10. 11. 12.` on the verso were enough. The horizontal legend was also 8/8 perfect; the rotated one lost `nationality` on 3 of 8 draws, plausibly because the rotated run sits beside `14. Államp:`. Every paired test on this axis is p=1.000.
+
+So #60's argument — *"if the licence prints no legend, the fixture prints no field names anywhere, which is a materially different document from the real one"* — is **true as a fidelity statement and false as an extraction-accuracy one**. Building rotated-text support cannot be justified on extraction grounds. That is exactly the case #60's third bullet anticipated: a fidelity gap the eval cannot detect.
+
+**Placement is noise for every unambiguous Field — and decisive for one thing.** Only 6 of 26 (document, Field) pairs ever differ across placements, and pooled the axis is indistinguishable from noise (`stacked` vs `inline` Δ −0.053 p=0.379; `stacked` vs `column` Δ −0.058 p=0.441; `inline` vs `column` Δ −0.005 p=1.000).
+
+**Do not read that pooled null as "placement doesn't matter."** It is the average of two large, opposite-signed, document-specific effects on one operation: splitting a single printed name line into `surname` and `givenNames`.
+
+| | `stacked` | `inline` | `column` |
+|---|---|---|---|
+| id_card `surname`/`givenNames` wrong | **7/8** | 0/8 | 0/8 |
+| address_card `surname` wrong | 1/8 | **5/8** | 2/8 |
+
+Under `stacked` the identity card returned `surname: "KOVÁCS-TŐKE ŐRSÉBET"`, `givenNames: "ÍRISZ"` on 7 of 8 draws — the split moved by one word. Under `inline` and `column` it was correct 8/8. The address card runs the other way: `stacked` is its best placement and `inline` swallowed the whole line into `surname` on 5 of 8 draws. **The direction of the effect reverses between two documents carrying the same name**, which is why they cancel, and why no single placement is safe for both.
+
+Drawing each type at the placement #47 says it really uses beats forcing everything to `stacked` — 0.929 vs 0.786 on the identity card — at the cost of 0.958 vs 0.990 on the address card. Net, matching the document wins, and it wins where the ticket said it would: on the type `card` was knowingly wrong for.
+
+**What this does not explain.** Why the flip. The identity card's label is long and bilingual (`Családi és utónév/Family name and Given name:`) and the address card's is short and monolingual (`Családi és utónév:`), so label length is the obvious suspect — but this probe did not vary label length and cannot say. Two documents is also two documents: the effect is large and consistent within each, and the claim that it *generalises* rests on nothing.
+
+### Findings that are not about the axes
+
+- **`surname`/`givenNames` split from one printed line is unreliable in its own right.** It failed under some placement on both types, and the address card got it wrong 5/8 under `inline` even though nothing on that page is ambiguous to a Hungarian reader. This is a risk [#58](https://github.com/akosgintl/document-intelligence/issues/58) and [#55](https://github.com/akosgintl/document-intelligence/issues/55) inherit, and arguably a question for [#40](https://github.com/akosgintl/document-intelligence/issues/40)'s Schema rather than for a fixture: the card prints one field and the Schema asks for two. A holder with two given names makes it worst, and real holders have two given names.
+- **The MRZ did not survive character-exact.** `mrz` was wrong on 6–8 of 8 draws under *every* identity-card placement — always the same way, one filler character too many in line 1 (31 characters returned against TD1's 30). Constant across the axis, so it biases nothing here, but it is a direct answer to the question [#53](https://github.com/akosgintl/document-intelligence/issues/53) asks about the passport's TD3 zone: a long run of `<` is where transcription breaks, and #41's argument that verbatim capture preserves all five check digits should be tested rather than assumed.
+- **Century inference held.** All 24 licence extractions returned `categories` exactly right, including `12.06.95.` → `1995-06-12` and `05.02.13.` → `2013-02-05`. That is the risk ADR-0010 knowingly accepted and [#54](https://github.com/akosgintl/document-intelligence/issues/54) wanted observed; on this fixture, at this fidelity, it did not materialise.
+- **A correctly-null Field can hold a Document below its Threshold on its own.** Every one of the 24 licence extractions landed `extraction_needs_review` **while being 100% accurate**, because `generalRestrictionCodes` came back null at 0.60–0.85 confidence on all 24 draws. The address card's `surname` went as low as 0.30 and its `givenNames` to 0.30. This is [#57](https://github.com/akosgintl/document-intelligence/issues/57)'s warning arriving early, and it is sharper than the map's version: it is not that low-fidelity pages depress confidence generally, it is that a Field the page deliberately shows nothing for is reported at low confidence and drags the whole Document into review at threshold 0.9. A golden set built on nullable cases (convention 3) will hit this on every one of them.
+
+### What the design could not have detected
+
+Twenty-six Field-pairs at eight replicates finds effects that move whole Fields between right and wrong; it does not resolve a couple of accuracy points. The pooled nulls above are "no effect large enough to matter for #60's decision", not "no effect". Two documents on the placement axis and one on the legend axis is also the sampling frame — nothing here licenses a claim about the passport or the 2012 laminated card, which were deliberately left out.
