@@ -6,8 +6,8 @@ Usage:
     uv run python scripts/manual_test.py [file] [--base-url URL] [--api-key KEY]
                                           [--interval SECONDS] [--timeout SECONDS]
 
-With no file argument, submits scripts/samples/invoice.pdf (generate it first
-with `uv run python scripts/generate_sample_invoice.py` if it's missing).
+With no file argument, submits scripts/samples/invoice.pdf (regenerate it with
+`uv run python -m fixtures.generate` if it's missing).
 """
 
 import argparse
@@ -79,8 +79,7 @@ def main() -> None:
 
     if not args.file.exists():
         raise SystemExit(
-            f"No such file: {args.file}\n"
-            "Generate the sample first: uv run python scripts/generate_sample_invoice.py"
+            f"No such file: {args.file}\nGenerate the sample first: uv run python -m fixtures.generate"
         )
 
     with httpx.Client(

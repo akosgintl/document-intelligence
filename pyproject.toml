@@ -37,6 +37,9 @@ build-backend = "hatchling.build"
 packages = ["src/document_intelligence"]
 
 [tool.pytest.ini_options]
+# The `fixtures` package (synthetic document fixtures, #51) lives at the repo root rather than
+# in `src/`: it's dev tooling shared by `eval/` and `scripts/`, not part of the shipped wheel.
+pythonpath = ["."]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
@@ -57,8 +60,8 @@ ignore = [
 
 [tool.mypy]
 python_version = "3.12"
-packages = ["document_intelligence"]
-mypy_path = "src"
+packages = ["document_intelligence", "fixtures"]
+mypy_path = "src:."
 ignore_missing_imports = true
 disallow_untyped_defs = false
 warn_unused_ignores = true
