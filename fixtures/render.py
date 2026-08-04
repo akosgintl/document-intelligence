@@ -12,11 +12,13 @@ is genuinely shared and a fifth geometry would only be needed by a document that
 stack of labelled values.
 
 **PROTOTYPE BRANCH — the label-placement knob #60 owns is drafted here, not decided.**
-Per #47, the eID identity card sets its labels inline (`Hun/Eng:` with the value following on
-the same line) and the address card sets them in a label column beside a value column, where
-`card` stacked all four; the driving licence's verso legend is set rotated 90° along the right
-edge, which this module could not draw at all. This branch widens `Geometry.stacked` into a
-three-way `label_style` and adds a rotated `Legend` element, so that
+#47 §6 — added after re-reading the PRADO captures — records that the eID identity card and the
+address card each mix **three** label placements on one face: the eID stacks its name, sets
+`Nem/Sex:` and `Állampolgárság/Nationality:` inline two-to-a-row, and right-aligns its dates and
+document number. So a `label_style` chosen per Document Type still cannot draw either card;
+what the specimens ask for is a placement per *row*. The driving licence's verso legend is set
+rotated 90° along the right edge, which this module could not draw at all. This branch widens
+`Geometry.stacked` into a three-way `label_style` and adds a rotated `Legend` element, so that
 `eval/prototype_label_placement/` can *measure* whether either matters to extraction before
 #60 commits to building them. Nothing here is settled: if placement measures as noise, the
 `label_style` widening comes back out and the fidelity claim is dropped instead. The
