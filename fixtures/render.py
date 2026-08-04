@@ -192,11 +192,22 @@ def _draw_table(
     label_font = fonts.sans(geometry.label)
     value_font = fonts.sans_bold(geometry.value)
 
-    def _cells(printed: Sequence[str], font: FreeTypeFont, ink: str, y: int) -> None:
+    def _cells(printed: Sequence[str], font: FreeTypeFont, ink: str, y: int, *, what: str) -> None:
         x = left
         # `strict` on purpose: a row with more cells than columns would still project its extra
         # Fields into `expected.json` while drawing nothing at all.
         for column, text in zip(table.columns, printed, strict=True):
+            # A cell is never shrunk to fit the way a Row's label is: shrinking one cell and not
+            # its neighbours would leave a table set in mixed sizes. It is refused instead, for
+            # the reason the whole table is — text that runs under the next column makes two
+            # values unreadable while the expectation still asserts both.
+            needed = font.getlength(text)
+            if needed > column.width - _COLUMN_GUTTER:
+                raise FixtureDoesNotFit(
+                    f"{what} {text!r} needs {needed:.0f}px but column {column.heading!r} leaves "
+                    f"{column.width - _COLUMN_GUTTER}px — widen the column or shorten the text "
+                    f"rather than letting it run under its neighbour"
+                )
             right_aligned = column.align == "right"
             # A right-aligned column ends a gutter short of the next one's left edge, so a wide
             # value can't run into its neighbour.
@@ -205,12 +216,20 @@ def _draw_table(
             x += column.width
 
     y = top + 16
+    if table.title:
+        draw.text(
+            (left, y - 8),
+            table.title,
+            font=_fitted(table.title, right - left, fonts.sans_bold, geometry.label),
+            fill=_INK,
+        )
+        y += geometry.label + 10
     draw.line((left, y - 8, right, y - 8), fill=_INK, width=2)
-    _cells([column.heading for column in table.columns], label_font, _LABEL_INK, y)
+    _cells([column.heading for column in table.columns], label_font, _LABEL_INK, y, what="heading")
     y += geometry.row_height - 8
 
     for row in table.rows:
-        _cells([cell.printed for cell in row], value_font, _INK, y)
+        _cells([cell.printed for cell in row], value_font, _INK, y, what="cell")
         y += geometry.row_height - 6
     draw.line((left, y, right, y), fill=_INK, width=2)
     return y + 12

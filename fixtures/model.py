@@ -70,6 +70,13 @@ class Table:
     rows: Sequence[Sequence[Cell]]
     into: str
     absent: Sequence[str] = ()
+    title: str = ""
+    """The caption printed above the table, where the document prints one.
+
+    A Hungarian invoice heads its VAT breakdown `ÁFA összesítő` but leaves the item table above
+    it uncaptioned, so two tables can abut with only one of them named. Proves no Field — it is
+    the label of a block, not of a value.
+    """
     """Nested keys every row carries as null because the table prints no column for them.
 
     ADR-0010 requires every property of an array Field's rows to be listed `required` and to be

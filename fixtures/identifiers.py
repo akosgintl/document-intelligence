@@ -36,13 +36,26 @@ def _broken(check_digit: str) -> str:
 # and subtracted from the next multiple of ten.
 
 
+_WEIGHTS_9731 = (9, 7, 3, 1, 9, 7, 3)
+
+
+def _check_digit_9731(base: str, *, what: str) -> str:
+    """The digit that closes a seven-digit base weighted 9,7,3,1,9,7,3 to a multiple of ten.
+
+    Shared by the adószám and the bank account number's GIRO CDV, which are separate schemes
+    that happen to have been specified with the same weighting — not one derived from the other.
+    Kept in one place because a transcription slip in either copy would be invisible: both
+    produce a plausible digit for every input.
+    """
+    if len(base) != 7 or not base.isdigit():
+        raise ValueError(f"{what} is seven digits, got {base!r}")
+    total = sum(int(digit) * weight for digit, weight in zip(base, _WEIGHTS_9731, strict=True))
+    return str((10 - total % 10) % 10)
+
+
 def tax_number_check_digit(base: str) -> str:
     """The published check digit for an adószám's seven-digit base."""
-    if len(base) != 7 or not base.isdigit():
-        raise ValueError(f"an adószám base is seven digits, got {base!r}")
-    weights = (9, 7, 3, 1, 9, 7, 3)
-    total = sum(int(digit) * weight for digit, weight in zip(base, weights, strict=True))
-    return str((10 - total % 10) % 10)
+    return _check_digit_9731(base, what="an adószám base")
 
 
 def tax_number_is_valid(value: str) -> bool:
@@ -94,6 +107,35 @@ def personal_identifier(*, sex_code: int, date_of_birth: date, serial: int) -> s
     first_ten = f"{sex_code}{date_of_birth:%y%m%d}{serial:03d}"
     broken = _broken(personal_identifier_check_digit(first_ten))
     return f"{first_ten[0]}-{first_ten[1:7]}-{first_ten[7:]}{broken}"
+
+
+# --- pénzforgalmi jelzőszám (Hungarian bank account number) --------------------------------
+#
+# Printed as `12345678-12345678`, or with a third group where the account needs one. Every group
+# stands alone: weight its eight digits 9,7,3,1,9,7,3,1 and the products sum to a multiple of
+# ten, which makes the eighth digit of each group its check digit. The first group is a real
+# bank's routing code, so breaking its check digit is what stops a fixture naming an actual
+# branch as well as what stops it naming an actual account.
+
+
+def bank_account_check_digit(base: str) -> str:
+    """The published check digit for one eight-digit group's seven-digit base."""
+    return _check_digit_9731(base, what="a bank account group's base")
+
+
+def bank_account_is_valid(value: str) -> bool:
+    """Whether every group of a printed account number carries its correct check digit."""
+    groups = value.split("-")
+    if not groups or any(len(group) != 8 or not group.isdigit() for group in groups):
+        return False
+    return all(group[7] == bank_account_check_digit(group[:7]) for group in groups)
+
+
+def bank_account_number(*bases: str) -> str:
+    """An account number grouped as one is printed, with no group's check digit correct."""
+    if not bases:
+        raise ValueError("an account number needs at least one eight-digit group")
+    return "-".join(f"{base}{_broken(bank_account_check_digit(base))}" for base in bases)
 
 
 # --- machine-readable zone (ICAO Doc 9303) -------------------------------------------------

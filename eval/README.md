@@ -45,10 +45,10 @@ Each golden example is a directory under `eval/golden/` containing:
   ```json
   {
     "document_type": "invoice",
-    "schema_version": 1,
+    "schema_version": 2,
     "fields": {
-      "invoiceNumber": "INV-2026-0417",
-      "totalAmount": 375.0
+      "invoiceNumber": "2026/B/00417",
+      "grossTotal": 5086616
     }
   }
   ```
@@ -63,11 +63,39 @@ Each golden example is a directory under `eval/golden/` containing:
   exactly.
 
 The harness discovers examples by recursively globbing for `expected.json`, so nesting (e.g.
-`eval/golden/invoice/basic/`, grouped by Document Type) is just for organization — the directory
-name has no effect on evaluation.
+`eval/golden/invoice/happy_path/`, grouped by Document Type) is just for organization — the
+directory name has no effect on evaluation.
 
-The two committed `invoice/*` examples predate the renderer and are **known broken**: they pin
-`schema_version: 1`, but classification binds to the latest version and invoice v2 has neither
-`vendorName` nor `totalAmount`. They are retired and replaced with v2 examples by
-[#56](https://github.com/akosgintl/document-intelligence/issues/56); until then, expect them to
-fail a run. Their generator has been absorbed into `fixtures/`.
+## What is committed
+
+Two examples per Document Type — one happy path, one whose nulls target that type's most
+contestable Schema decision (#46, convention 3).
+
+| Example | What it is | What it is here to catch |
+| --- | --- | --- |
+| `invoice/happy_path` | A NAV-complete Hungarian invoice, settled by transfer | Its `vatSummary` and its totals block **disagree by 1 Ft**, which is legitimate rounding and must survive extraction rather than being reconciled; `vatRate` prints `27%`, `fordított adózás` and `TAM` in one column |
+| `invoice/simplified` | An *egyszerűsített számla* — a gross-only counter sale | The page says so, but **no Field records it**: null `netAmount` on every line, null `netTotal`/`vatTotal`, and `vatSummary` null as a whole array, is all an extracted Document has to read it by |
+
+The eight examples for the four Hungarian identity types are still to be authored (#53, #54,
+#55, #58).
+
+### Measured baseline
+
+`claude-sonnet-5` (the `AnthropicModelProvider` default), 2026-08-04, **6 replicated runs**:
+12/12 example-evaluations fully correct — classification 12/12 at `classified`, and every one
+of the 18 Fields correct on every run, `lineItems` and `vatSummary` included. Those two compare
+by exact `==` over the whole nested value (`_values_match` applies its ±0.01 tolerance only at
+the top level), so a single wrong row or a missing null would have shown.
+
+The figure worth naming: **the 1 Ft rounding disagreement survived extraction intact in all six
+runs.** The model transcribed `vatSummary`'s 47 115 and the totals block's 47 116 as printed
+rather than reconciling them — which is what #43 kept both blocks for.
+
+Replicate before reading anything into a change here. #49 measured this Provider as returning a
+*draw*, not a reading — `anthropic_provider.py` sets no `temperature` — so a single run that
+differs is not yet a regression.
+
+The two `invoice/*` examples that predated the renderer were **unrecoverably broken** — they
+pinned `schema_version: 1`, classification binds to the latest version, and invoice v2 has
+neither `vendorName` nor `totalAmount` — so they and their generator were deleted rather than
+patched (#46, convention 4; #51 and #56).
