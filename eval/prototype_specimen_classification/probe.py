@@ -40,6 +40,11 @@ class Observation:
     input_tokens: int | None = None
     output_tokens: int | None = None
     latency_ms: float | None = None
+    # Set by sequence.py. `run` separates the randomized replicated pass from the first
+    # deterministic one; `sequence_index` is the call's position in the shuffled order, which
+    # is what makes drift testable rather than merely assumed away.
+    run: str | None = None
+    sequence_index: int | None = None
 
 
 class _UsageRecorder:
@@ -80,6 +85,8 @@ async def classify(
     variant_description: str,
     registry: SchemaRegistry,
     client: anthropic.AsyncAnthropic,
+    run: str | None = None,
+    sequence_index: int | None = None,
 ) -> Observation:
     """One real, billed classify_document call against every registered Document Type.
 
@@ -114,6 +121,8 @@ async def classify(
         input_tokens=recorder.last.input_tokens if recorder.last else None,
         output_tokens=recorder.last.output_tokens if recorder.last else None,
         latency_ms=recorder.last.latency_ms if recorder.last else elapsed_ms,
+        run=run,
+        sequence_index=sequence_index,
     )
     _append(observation)
     return observation

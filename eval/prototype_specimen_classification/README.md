@@ -63,55 +63,101 @@ uv run python eval/prototype_specimen_classification/run.py
 `[r]` renders all 8 variants to `pages_rendered/` for free — **look at them before spending anything**.
 `[1]`–`[8]` fire one variant, `[a]` fires all 8 for the current type. `[t]` cycles Document Type.
 
+The answer, though, comes from the second pass — `run.py` fires each cell once, which turned out
+to be too thin to support any claim about the axes:
+
+```
+uv run python eval/prototype_specimen_classification/sequence.py   # 160 billed calls, ~9 min
+uv run python eval/prototype_specimen_classification/analyse.py    # free, reads observations.jsonl
+```
+
+`sequence.py` shuffles 5 replicates of all 32 cells into **one seeded random order** and records
+each call's position, so ordering effects can be tested rather than assumed away. Why both
+changes were needed is in *Findings*.
+
 Every result is appended to `observations.jsonl` as it arrives. That breaks the "no persistence"
 rule on purpose: these observations cost real money, and losing them to a closed terminal means
 paying again.
 
 ## Findings
 
-Run 2026-08-04, 37 billed calls (32 variants + 5 repeats), `schema_version` 1 throughout.
+Two passes, **197 billed calls** total, `schema_version` 1 throughout.
 
-**Yes — they classify, and the `MINTA / SPECIMEN` marking can stay.** 32/32 landed on the
-intended Document Type at `classified`. Nothing came back `unclassified`, nothing came back
-`classification_needs_review`, and no call ever matched a *different* type. Confidence spanned
-0.90–0.99 against the identity types' 0.9 Threshold. Extraction would have followed in every case.
+| | calls | design |
+|---|---|---|
+| Pass 1 — `run.py --all` | 32 + 5 repeats | one draw per cell, fixed order |
+| Pass 2 — `sequence.py` | 160 | 5 replicates × 32 cells, one seeded random order |
 
-### Per axis, over all four types
+### The answer
 
-| Axis | On | Off | Effect |
+**Yes — they classify, and the `MINTA / SPECIMEN` marking can stay.** Across all 197 calls, every
+single one matched the intended Document Type at `classified`. Nothing came back `unclassified`,
+nothing came back `classification_needs_review`, no call ever matched a *different* type, and
+**not one call fell below its Confidence Threshold**. In the randomized pass the observed range was
+0.95–0.99 against the identity types' 0.9.
+
+### Why pass 1 wasn't enough
+
+`anthropic_provider.py` sets no `temperature`, so the API default of 1.0 applies and every call is
+a **draw from a distribution, not a reading**. Pass 1 measured each cell once and then compared
+those single draws across axes. Two consequences, both visible in the data:
+
+- **18 of 32 cells returned more than one distinct confidence across just 5 draws**, and 3 of
+  pass 1's single draws fall outside their own cell's replicated range.
+- Pass 1's variant order put all four non-SPECIMEN variants before all four SPECIMEN ones within
+  each Document Type, so any session drift would have landed squarely on the axis being measured.
+
+### All three axes are noise
+
+Permuting at the **cell** level — 16 cells on versus 16 off, which is the correct unit, since five
+draws of one page are not five independent observations:
+
+| Axis | On | Off | Gap | p |
+|---|---|---|---|---|
+| `MINTA / SPECIMEN` overlay | 0.9810 | 0.9768 | +0.0042 | 0.234 |
+| Photo placeholder box | 0.9794 | 0.9784 | +0.0010 | 0.808 |
+| Card chrome vs bare text | 0.9808 | 0.9770 | +0.0038 | 0.293 |
+
+None is distinguishable from noise. **Permuting individual calls instead would report the SPECIMEN
+axis at p=0.009 and chrome at p=0.023** — that is pseudoreplication, not signal, and it is exactly
+the mistake replication was added to avoid. Both are in `analyse.py`; the cell-level one governs.
+
+So: the ticket's stated risk does not materialise, and it is not a near miss. Convention 8's
+invalid check digits are **not** left as the only thing separating a fixture from a forgery.
+
+### The order confound was real to worry about, and absent in fact
+
+First half of the randomized sequence 0.9786, second half 0.9791, p=0.818. No drift — so pass 1's
+fixed ordering did not actually corrupt it. Worth stating plainly: randomizing was the right call
+*a priori* (every call is independent, but that is an argument, not a measurement), and it came
+back clean.
+
+### Withdrawn: the address-card chrome requirement
+
+Pass 1 concluded that the address card's `S--` cell sat *exactly* on 0.90 with zero margin, and
+that card chrome was needed to buy headroom. The replicated pass does not support that:
+
+- That cell read **0.97 in all five randomized draws**. Pooling both passes it is 0.90 twice in 11
+  draws — the low mode is real, but it never went *under*, and it did not recur when the call order
+  stopped being predictable.
+- The worst bare-text address card in the whole randomized pass is **0.95 — a margin of +0.05**.
+- Chrome's effect on the address card is +0.0115, which is inside the noise band above.
+
+The address card remains the weakest of the four (mean 0.968, min 0.95, versus 0.976–0.988 for the
+rest) — no photo, no MRZ, monolingual, least distinctive by construction. But it has margin, and
+**chrome is not a requirement for it.** Per type, in the randomized pass:
+
+| Document Type | Mean | Min | Margin over threshold |
 |---|---|---|---|
-| `MINTA / SPECIMEN` overlay | 0.978 | 0.979 | **−0.002 — nothing** |
-| Photo placeholder box | 0.980 | 0.977 | +0.003 |
-| Card chrome vs bare text | 0.982 | 0.974 | +0.008 |
-
-All three effects are smaller than the 0.97↔0.90 jitter of a single repeated variant (below), so
-only the direction of the chrome axis is worth anything — and it is worth it in one specific place.
-
-1. **The SPECIMEN overlay is free.** This was the ticket's stated risk and it did not
-   materialise: not one call read "MINTA" as "blank template". Convention 8's invalid check
-   digits do **not** become the only fixture/forgery separator — the map keeps both.
-2. **The photo axis is a non-issue, in both directions.** Convention 2's "no photo" costs the
-   three types whose Schema says a photo is there essentially nothing (id_card −0.003,
-   passport ±0.000, licence +0.005). The contradiction between convention 2 and those Schema
-   descriptions is real on paper but does not bite at classification time. The control behaved
-   too: the address card, whose Schema says "carrying no photograph", was not hurt by a photo
-   box it should not have (0.968 with, 0.958 without).
-3. **The address card is the weak one, and chrome is what rescues it.** Every one of the five
-   lowest readings is an address card — it has no photo, no MRZ, and monolingual labels, so it
-   is the least distinctive of the four by construction. Its worst variant, `S--`
-   (SPECIMEN + bare text, no chrome), read **0.90 — exactly the Threshold, zero margin**.
-   Adding chrome alone takes the same page to 0.98.
-4. **That 0.90 is not a one-off.** Re-run 5× (6 draws total) it came back 0.97, 0.97, 0.97,
-   **0.90**, 0.97 — bimodal, on the line roughly one draw in six, never under it. `0.90 < 0.9`
-   is False so it classifies, but a fixture that samples the low mode has no room left.
-5. **Invalid check digits cost nothing at classification time.** Every value on every page
-   carried one; no reading suggests the model priced it in.
+| `hungarian_passport` | 0.988 | 0.98 | +0.08 |
+| `hungarian_id_card` | 0.984 | 0.98 | +0.08 |
+| `hungarian_driving_licence` | 0.976 | 0.97 | +0.07 |
+| `hungarian_address_card` | 0.968 | 0.95 | +0.05 |
 
 ### Minimum fidelity
 
-Bare text with the real printed labels from #47 is enough for the ID card, passport and
-licence — all three held ≥0.97 in every variant including bare-text-plus-SPECIMEN. **For the
-address card, draw the card outline and field grid.** It is the cheapest insurance in the whole
-matrix (0.90 → 0.98) and it is the only place any axis mattered.
+Bare text with the real printed labels from #47 is enough for all four types, with or without the
+SPECIMEN overlay and with or without a photo box. Nothing in the matrix needs to be sacrificed.
 
-Cost shape, for #51's budgeting: ~3,690 input / 117 output tokens and ~3.2s per classification.
+Invalid check digits cost nothing at classification time. Cost shape for #51's budgeting:
+~3,690 input / 117 output tokens and ~3.2s per classification.
