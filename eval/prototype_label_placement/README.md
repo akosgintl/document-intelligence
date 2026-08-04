@@ -105,48 +105,51 @@ Two of the findings below are wrong as written, and one is void. Recorded here r
 
 ## Findings
 
-**72 billed Extractions**, `claude-sonnet-5`, run `randomized-r8`, seed 60. ~5,150 input / 737 output tokens and 7.3s per call. No session drift (first half 0.9435, second half 0.9428, Δ −0.0007), so the randomized order came back clean the way #49's did.
+Two passes. **The second supersedes the first**, which was measuring a bug.
 
-| axis | document | variant | accuracy | mean conf | statuses |
-|---|---|---|---|---|---|
-| legend | driving_licence | `absent` | **1.000** [1.000–1.000] | 0.931 | needs_review ×8 |
-| legend | driving_licence | `horizontal` | **1.000** [1.000–1.000] | 0.948 | needs_review ×8 |
-| legend | driving_licence | `rotated` | 0.969 [0.917–1.000] | 0.923 | needs_review ×8 |
-| placement | address_card | `stacked` | **0.990** [0.917–1.000] | 0.923 | extracted ×4 |
-| placement | address_card | `column` *(real)* | 0.958 [0.833–1.000] | 0.923 | extracted ×2 |
-| placement | address_card | `inline` | 0.938 [0.833–1.000] | 0.895 | extracted ×3 |
-| placement | id_card | `inline` *(real)* | 0.929 [0.929–0.929] | 0.943 | extracted ×7 |
-| placement | id_card | `column` | 0.920 [0.857–1.000] | 0.937 | extracted ×4 |
-| placement | id_card | `stacked` | **0.786** [0.714–1.000] | 0.925 | needs_review ×8 |
+| | calls | design |
+|---|---|---|
+| Pass 1 — `randomized-r8` | 72 | 3 uniform placements × 2 documents, plus 3 legend variants; nonce holder name; **invalid MRZ** |
+| Pass 2 — `names-and-placement-r6` | 144 | 4 placements (incl. the specimen's own) × 3 holder names × 2 documents; MRZ per 9303 §6.A |
 
-### The answer, and it is not the one the ticket offered
+### The answer: both factors are noise, and pass 1's effect was my own bug
 
-**The legend buys nothing measurable, and the rotated one is if anything worse.** The licence extracted **12 of 12 Fields correctly on all 8 draws with no field names printed anywhere on the card** — bare EU numbers `1.` `2.` `4a.` on the recto and a table headed `9. 10. 11. 12.` on the verso were enough. The horizontal legend was also 8/8 perfect; the rotated one lost `nationality` on 3 of 8 draws, plausibly because the rotated run sits beside `14. Államp:`. Every paired test on this axis is p=1.000.
+**Placement has no detectable effect on extraction** — including the `specimen` arm, which draws each card as PRADO prints it, against three crude uniform controls:
 
-So #60's argument — *"if the licence prints no legend, the fixture prints no field names anywhere, which is a materially different document from the real one"* — is **true as a fidelity statement and false as an extraction-accuracy one**. Building rotated-text support cannot be justified on extraction grounds. That is exactly the case #60's third bullet anticipated: a fidelity gap the eval cannot detect.
-
-**Placement is noise for every unambiguous Field — and decisive for one thing.** Only 6 of 26 (document, Field) pairs ever differ across placements, and pooled the axis is indistinguishable from noise (`stacked` vs `inline` Δ −0.053 p=0.379; `stacked` vs `column` Δ −0.058 p=0.441; `inline` vs `column` Δ −0.005 p=1.000).
-
-**Do not read that pooled null as "placement doesn't matter."** It is the average of two large, opposite-signed, document-specific effects on one operation: splitting a single printed name line into `surname` and `givenNames`.
-
-| | `stacked` | `inline` | `column` |
+| comparison | Δ | p | Field-pairs differing |
 |---|---|---|---|
-| id_card `surname`/`givenNames` wrong | **7/8** | 0/8 | 0/8 |
-| address_card `surname` wrong | 1/8 | **5/8** | 2/8 |
+| `specimen` vs `stacked` | −0.009 | 1.000 | 3 / 26 |
+| `specimen` vs `inline` | −0.017 | 1.000 | 2 / 26 |
+| `specimen` vs `column` | −0.002 | 1.000 | 5 / 26 |
+| `stacked` vs `inline` | −0.009 | 0.502 | 2 / 26 |
 
-Under `stacked` the identity card returned `surname: "KOVÁCS-TŐKE ŐRSÉBET"`, `givenNames: "ÍRISZ"` on 7 of 8 draws — the split moved by one word. Under `inline` and `column` it was correct 8/8. The address card runs the other way: `stacked` is its best placement and `inline` swallowed the whole line into `surname` on 5 of 8 draws. **The direction of the effect reverses between two documents carrying the same name**, which is why they cancel, and why no single placement is safe for both.
+**The holder's name has no detectable effect either.** `nonce` (`ŐRSÉBET`, not a word) versus `real` (`ERZSÉBET`, identical in every other respect) is Δ −0.005, p=0.750. The `specimen` arm — `SZÉPENÉ KISS ROZÁLIA`, a two-word married surname that invites cutting one word early — is no worse than either (p=0.375, p=0.876). Lexical recognisability of the given name is not what was driving pass 1.
 
-Drawing each type at the placement #47 says it really uses beats forcing everything to `stacked` — 0.929 vs 0.786 on the identity card — at the cost of 0.958 vs 0.990 on the address card. Net, matching the document wins, and it wins where the ticket said it would: on the type `card` was knowingly wrong for.
+**What was driving it: an MRZ that could not exist.** Pass 1's `pages.py` fed accented names into `mrz_td1`, so the identity card printed `KOVÁCS<TŐKE<<ŐRSÉBET<ÍRISZ` — characters the zone's alphabet does not have. Holding everything else constant, the single comparable cell moves:
 
-**What this does not explain.** Why the flip. The identity card's label is long and bilingual (`Családi és utónév/Family name and Given name:`) and the address card's is short and monolingual (`Családi és utónév:`), so label length is the obvious suspect — but this probe did not vary label length and cannot say. Two documents is also two documents: the effect is large and consistent within each, and the claim that it *generalises* rests on nothing.
+| id_card, `nonce` name, `stacked` placement | `surname`+`givenNames` correct | MRZ character-exact |
+|---|---|---|
+| Pass 1 — accented, unwritable zone | **2 / 16** | 3 / 24 |
+| Pass 2 — transliterated per §6.A, `I<` document code | **11 / 12** | 70 / 72 |
 
-### Findings that are not about the axes
+The only thing that changed in that cell is the zone. **A valid MRZ hands the model the name split**: `KOVACS<TOKE<<ORSEBET<IRISZ` marks the primary/secondary boundary with `<<`, and printing a zone the model cannot trust throws that away. The 7-in-8 split failure that pass 1 attributed to label placement was an artifact of a broken fixture.
 
-- **`surname`/`givenNames` split from one printed line is unreliable in its own right.** It failed under some placement on both types, and the address card got it wrong 5/8 under `inline` even though nothing on that page is ambiguous to a Hungarian reader. This is a risk [#58](https://github.com/akosgintl/document-intelligence/issues/58) and [#55](https://github.com/akosgintl/document-intelligence/issues/55) inherit, and arguably a question for [#40](https://github.com/akosgintl/document-intelligence/issues/40)'s Schema rather than for a fixture: the card prints one field and the Schema asks for two. A holder with two given names makes it worst, and real holders have two given names.
-- **The MRZ did not survive character-exact.** `mrz` was wrong on 6–8 of 8 draws under *every* identity-card placement — always the same way, one filler character too many in line 1 (31 characters returned against TD1's 30). Constant across the axis, so it biases nothing here, but it is a direct answer to the question [#53](https://github.com/akosgintl/document-intelligence/issues/53) asks about the passport's TD3 zone: a long run of `<` is where transcription breaks, and #41's argument that verbatim capture preserves all five check digits should be tested rather than assumed.
-- **Century inference held.** All 24 licence extractions returned `categories` exactly right, including `12.06.95.` → `1995-06-12` and `05.02.13.` → `2013-02-05`. That is the risk ADR-0010 knowingly accepted and [#54](https://github.com/akosgintl/document-intelligence/issues/54) wanted observed; on this fixture, at this fidelity, it did not materialise.
-- **A correctly-null Field can hold a Document below its Threshold on its own.** Every one of the 24 licence extractions landed `extraction_needs_review` **while being 100% accurate**, because `generalRestrictionCodes` came back null at 0.60–0.85 confidence on all 24 draws. The address card's `surname` went as low as 0.30 and its `givenNames` to 0.30. This is [#57](https://github.com/akosgintl/document-intelligence/issues/57)'s warning arriving early, and it is sharper than the map's version: it is not that low-fidelity pages depress confidence generally, it is that a Field the page deliberately shows nothing for is reported at low confidence and drags the whole Document into review at threshold 0.9. A golden set built on nullable cases (convention 3) will hit this on every one of them.
+### What this means for #60
 
-### What the design could not have detected
+The empirical question the ticket raised — *"does label placement affect extraction accuracy at all?"* — answers **no**, now that it is asked against a page whose MRZ is writable and against the layout the card actually prints. Combined with the legend axis from pass 1 (12/12 Fields correct with no field names printed anywhere, p=1.000 on every pairing), **neither half of #60 can be justified on extraction-accuracy grounds.**
 
-Twenty-six Field-pairs at eight replicates finds effects that move whole Fields between right and wrong; it does not resolve a couple of accuracy points. The pooled nulls above are "no effect large enough to matter for #60's decision", not "no effect". Two documents on the placement axis and one on the legend axis is also the sampling frame — nothing here licenses a claim about the passport or the 2012 laminated card, which were deliberately left out.
+That is exactly the case the ticket's third bullet anticipated: *"whether a fidelity gap that the eval cannot detect is worth code at all"*. The measurement says the eval cannot detect it. Whether the fixtures should still look like the documents is a judgement for the ticket, not a finding this probe can supply.
+
+One thing the probe does supply: **#60's decision as framed cannot be made.** Both candidate shapes pick one label placement per Document Type, and #47 §6 shows neither card prints one — the eID stacks its name, pairs two fields inline on a row, and right-aligns three more. The `Row.place` / `Row.align` / `Pair` machinery on this branch is the per-row third shape, and it is small: one field on `Row`, one match arm, one element type.
+
+### Findings that outlive the axes
+
+- **The MRZ transcribes character-exact 70 times in 72**, once the zone is writable. Both misses are the same failure: one filler too many in a trailing run (31 characters where TD1 has 30). This answers what [#53](https://github.com/akosgintl/document-intelligence/issues/53) asks about the passport's TD3 zone — the risk is not the check digits, it is counting `<`. Note the same off-by-one appears in `hungarian-passport-field-layout.md` §7.4's hand transcription, so it is not a model-specific weakness.
+- **A machine-readable zone disambiguates the name split for free.** The two types that combine `surname` and `givenNames` on one printed line are the identity card and the address card; only the identity card has an MRZ. This is worth knowing for [#55](https://github.com/akosgintl/document-intelligence/issues/55), whose address card has no such backstop, and it is an argument for the Schemas' insistence that the zone be captured verbatim.
+- **`sex` is the one field the specimen layout made worse**: `N/F` returned 9 times in 18 under `specimen` against 15–18 in 18 under the uniform arms. Under `specimen` it sits in a `Pair`, sharing a row with `Állampolgárság/Nationality:`. One field at n=18 is a hypothesis, not a finding — but if a fixture wants two fields on one row, this is the thing to watch.
+- **`extraction_needs_review` remains near-universal.** 92 of 144 Extractions landed in review, many of them at 100% accuracy, because a single Field below the 0.9 Threshold is enough. Convention 3 builds a nullable case per Document Type, so [#57](https://github.com/akosgintl/document-intelligence/issues/57) should expect this on every one of them rather than treating it as a fixture defect.
+- No session drift: first half 0.9818, second half 0.9815. ~4,930 in / 727 out tokens, 7.5s per call.
+
+### What this design could not have detected
+
+Twenty-six Field-pairs at six replicates finds effects that move whole Fields between right and wrong; it does not resolve a couple of accuracy points. Every null above is "no effect large enough to matter for #60's decision", not "no effect". Two Document Types is the sampling frame — nothing here licenses a claim about the passport or the 2012 laminated card. And pass 2 changed several things at once relative to pass 1 (the zone, the document code, the name arms, the specimen layout), so the attribution of pass 1's effect to the MRZ rests on the single held-constant cell tabulated above, not on a designed comparison.
