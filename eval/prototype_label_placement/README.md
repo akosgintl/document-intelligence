@@ -89,6 +89,20 @@ The candidate implementation, so the probe measures the real renderer rather tha
 
 All 33 existing `tests/test_fixture_renderer.py` cases still pass and no committed fixture changes. **None of this is a decision** — if placement measures as noise, the widening comes back out and #60 drops the fidelity claim instead.
 
+## ⚠️ Corrections after reviewing the PRADO specimens directly
+
+Two of the findings below are wrong as written, and one is void. Recorded here rather than edited away, because the errors are the useful part.
+
+1. **The identity card's name field is `stacked` on the real card, not `inline`.** The table below labels `inline` as the eID's *(real)* placement on the strength of #47's summary sentence "the eID identity card sets its labels inline". The `HUN-BO-06001` specimen does not support that: `Családi és utónév/Family name and Given name:` sits on its own line with `SZEPENÉ KISS ROZÁLIA` **below** it. What is inline on that card is `Nem/Sex:`, `CAN:` and (on the verso) `Kiállító hatóság:`; the dates and document number are label-left with the value **right-aligned** at the far edge. So the real eID mixes at least three placements *within one card*, and the name — the only field this probe's placement effect lives in — is stacked.
+
+   This inverts the reading: **the placement Hungary actually prints for the name is the one that produced a 7-in-8 wrong split.** That is a sharper warning for #58 and for production than "match the document and you're fine", and it is a problem #60's framing cannot express, since both of its candidate shapes pick one placement per *type* and the real card needs one per *row*.
+
+2. **The MRZ finding is void.** `pages.py` passed accented names straight into `mrz_td1`, so the zone this probe printed contained `Á`, `Ő`, `É` and `Í` — characters the MRZ alphabet does not have. The model was asked to transcribe a zone that cannot exist, so "the MRZ did not survive character-exact" measured nothing. `identifiers._transliterate` now applies ICAO Doc 9303 Part 3 §6.A and the document code is `I<` rather than `ID`, both confirmed against the specimen's `I<HUN000188KE<1…` / `SZEPENE<KISS<<ROZALIA<<<<<<<<<`. Re-measure before repeating the claim.
+
+   Worth keeping alongside it: `docs/research/hungarian-passport-field-layout.md` §7.4 transcribes the passport specimen's MRZ line 1 as **45 characters** where TD3 has 44 — one filler too many. A human reading an MRZ off a PRADO image made the same off-by-one the model made. That is evidence about trailing-filler runs being the fragile part of an MRZ for *any* reader, and it is a better-founded version of what the void finding was reaching for.
+
+3. **`ŐRSÉBET` is not a Hungarian name** (`ERZSÉBET` is). It came from `fixtures/catalogue.py`'s committed invoice fixture rather than being invented here, but it means the name-split cells may be measuring "layout matters when the token is lexically unrecognisable" rather than "layout matters". Untested; see the note at the end.
+
 ## Findings
 
 **72 billed Extractions**, `claude-sonnet-5`, run `randomized-r8`, seed 60. ~5,150 input / 737 output tokens and 7.3s per call. No session drift (first half 0.9435, second half 0.9428, Δ −0.0007), so the randomized order came back clean the way #49's did.

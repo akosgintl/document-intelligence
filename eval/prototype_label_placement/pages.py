@@ -114,8 +114,10 @@ ID_CARD = Example(
                     # The issue date is printed unlabelled, bottom right, on the real card.
                     Row("", "2021.09.01", dateOfIssue="2021-09-01"),
                     Mrz(
+                        # `I<`, not `ID`: the HUN-BO-06001 specimen's zone reads
+                        # `I<HUN000188KE<1...`. `mrz_td1` pads a one-character code with a filler.
                         identifiers.mrz_td1(
-                            document_code="ID",
+                            document_code="I",
                             issuing_state="HUN",
                             surname=_SURNAME,
                             given_names=_GIVEN_NAMES,
