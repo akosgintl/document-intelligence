@@ -373,12 +373,15 @@ def render_png_bytes(example: Example) -> bytes:
 
 
 def render_pdf_bytes(example: Example) -> bytes:
-    """The same page as a single-page PDF.
+    """The same page as a single-page PDF, byte-reproducible like the PNG.
 
-    Unlike the PNG this is *not* byte-reproducible: Pillow stamps a `/CreationDate` into every
-    PDF it writes, so regenerating a committed sample always shows a diff, and no test can pin
-    it the way `test_the_committed_sample_matches_a_fresh_render` pins the PNG.
+    Pillow defaults `creationDate` and `modDate` to `time.gmtime()`, which stamped the wall
+    clock into every PDF and made a committed sample churn on every regeneration. Passing
+    `None` omits both keys outright rather than substituting a fixed date — a synthetic fixture
+    has no creation date worth claiming, and an invented one only invites the question.
     """
     buffer = io.BytesIO()
-    render_submission(example.submission).save(buffer, format="PDF")
+    render_submission(example.submission).save(
+        buffer, format="PDF", creationDate=None, modDate=None
+    )
     return buffer.getvalue()

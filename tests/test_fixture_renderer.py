@@ -30,6 +30,7 @@ from fixtures import (
     extracted_fields,
     fonts,
     identifiers,
+    render_pdf_bytes,
     render_png_bytes,
     write_golden,
     write_sample,
@@ -390,6 +391,28 @@ def test_the_committed_sample_matches_a_fresh_render(example: Example):
     assert committed == render_png_bytes(example), (
         f"{example.sample}.png is stale — regenerate it with `uv run python -m fixtures.generate`"
     )
+
+
+@pytest.mark.parametrize(
+    "example", [e for e in EXAMPLES if e.sample], ids=lambda example: example.key
+)
+def test_the_committed_sample_pdf_matches_a_fresh_render(example: Example):
+    # The PDF was the one committed artifact no test could pin, because Pillow stamped the
+    # wall clock into it. Now that it doesn't, the PDF is held to the same standard as the PNG.
+    committed = (SAMPLE_ROOT / f"{example.sample}.pdf").read_bytes()
+
+    assert committed == render_pdf_bytes(example), (
+        f"{example.sample}.pdf is stale — regenerate it with `uv run python -m fixtures.generate`"
+    )
+
+
+def test_a_rendered_pdf_carries_no_wall_clock_stamp():
+    # Pillow defaults `creationDate`/`modDate` to `time.gmtime()`, which made every regeneration
+    # churn the committed PDF and hid real fixture changes in a diff that was always dirty.
+    pdf = render_pdf_bytes(_address_card_example())
+
+    assert b"/CreationDate" not in pdf
+    assert b"/ModDate" not in pdf
 
 
 @pytest.mark.parametrize(
