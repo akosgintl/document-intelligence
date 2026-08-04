@@ -18,41 +18,48 @@ That is an argument, and it is a testable one. The licence prints **no label bes
 
 ## Design
 
-Two axes, deliberately not crossed — crossing them would mean drawing a licence at a label placement it has no labels for.
+Two passes. **Pass 2 supersedes pass 1**, which measured a layout the specimens do not print and an MRZ that could not exist.
 
-| Axis | Document | Variants |
-|---|---|---|
-| **Placement** | `hungarian_id_card` (2021 eID), `hungarian_address_card` | `stacked` (what `card` drew before this branch) / `inline` (what the eID really prints) / `column` (what the address card really prints) |
-| **Legend** | `hungarian_driving_licence` | `absent` (what the renderer drew before this branch) / `horizontal` (the 2012 card) / `rotated` (the 2013 card) |
+### Pass 2 — `names-and-placement-r6`, 144 billed Extractions
 
-9 cells × 8 replicates = **72 billed Extractions**.
+Two crossed factors on the two Document Types that combine `surname` and `givenNames` on one printed line, 6 replicates per cell.
 
-### Why only two types on the placement axis
+| Factor | Levels |
+|---|---|
+| **Placement** | `stacked` / `inline` / `column` — one placement forced onto every row; experimental controls, not documents. Plus **`specimen`**, where each row places itself as PRADO shows it. |
+| **Holder name** | `nonce` (`KOVÁCS-TŐKE ŐRSÉBET ÍRISZ` — plausible orthography, not a real name) / `real` (identical but `ERZSÉBET`, which exists) / `specimen` (each card's own holder: `SZÉPENÉ KISS ROZÁLIA`, `DEBRECENI-SZATMÁRI ANDREA`) |
+| **Document** | `hungarian_id_card` (2021 eID), `hungarian_address_card` |
 
-The passport and the 2012 laminated identity card are *correctly* stacked per [#47](https://github.com/akosgintl/document-intelligence/issues/47). Drawing them at the other two placements would measure the axis on documents whose answer cannot change #60's decision — the eID and the address card are the two types `card` is knowingly wrong for, and they are the two that #58 and #55 will draw. The cost of that choice is generality: if placement turns out to matter, this probe says it matters *for these two types* and a wider sweep would be the follow-up.
+`specimen` is the only placement arm that draws a real document: #47 §6 records that the eID stacks its name, pairs `Nem/Sex:` and `Állampolgárság/Nationality:` inline on one row, and right-aligns its dates and document number, while the address card runs `Családi és utónév:` inline on the recto and stacked on the verso. **No uniform placement draws either card**, which is why the other three arms are controls.
+
+`nonce` and `real` differ in exactly one token, which is what isolates lexical recognition from everything else.
+
+The driving licence is not in pass 2: its legend axis came back settled, and it prints `1.` and `2.` as separate rows, so it has no combined name line to vary.
+
+### Pass 1 — `randomized-r8`, 72 billed Extractions
+
+3 uniform placements × 2 documents, plus a legend axis on the driving licence (`absent` / `horizontal` / `rotated`), 8 replicates. The legend result stands. The placement result does not — see Corrections.
 
 ### What is actually called
 
-`extract([page], registered.schema)` against the real `AnthropicModelProvider` — **billed**, `claude-sonnet-5`. Classification is deliberately not probed; #49 already did that (197/197 correct, every fidelity axis noise), and this probe exists precisely because that result does not transfer to Extraction.
+`extract([page], registered.schema)` against the real `AnthropicModelProvider` — **billed**, `claude-sonnet-5`. Classification is deliberately not probed; [#49](https://github.com/akosgintl/document-intelligence/issues/49) already did that (197/197 correct, every fidelity axis noise), and this probe exists precisely because that result does not transfer to Extraction.
 
-`probe.py` mirrors `pipeline._run_extraction`, including its exactly-one retry with validation errors fed back into the prompt (#24), and its status decision — any Field below the Confidence Threshold (0.9 for all three types) means `extraction_needs_review` rather than `extracted`.
+`probe.py` mirrors `pipeline._run_extraction`, including its exactly-one retry with validation errors fed back into the prompt (#24), and its status decision — any Field below the Confidence Threshold (0.9 for both types) means `extraction_needs_review` rather than `extracted`.
 
-Comparison is a **recursive** exact match, not `run_eval._values_match`: that applies its ±0.01 tolerance only at the top level, which is the bug [#52](https://github.com/akosgintl/document-intelligence/issues/52) exists to fix. Nothing on these pages is a number, so the probe needs recursion and no tolerance — and borrowing the harness's comparison would have made these results depend on a bug about to be removed. Array comparison is **order-sensitive**, which is one of the open questions #52 has to settle; this probe assumes order is part of the expectation and says so.
+Comparison is a **recursive** exact match, not `run_eval._values_match`: that applies its ±0.01 tolerance only at the top level, which is the bug [#52](https://github.com/akosgintl/document-intelligence/issues/52) exists to fix. Array comparison is **order-sensitive**, one of the questions #52 has to settle; this probe assumes order is part of the expectation and says so.
 
 ### Deliberate content choices
 
-- **Real printed labels** from `docs/research/hungarian-document-printed-labels.md` (#47) — the 2021 eID generation, monolingual for the address card, the 2013 legend wording for the licence. A probe with invented labels answers a different question.
-- **Accented Hungarian values** (`Ő`, `Ű`, `É`, `Á`, `Í`) in the vendored DejaVu.
-- **Invalid check digits** throughout (convention 8) — személyi azonosító, ICAO TD1 — built through `fixtures.identifiers`, so this also shows whether they cost anything at extraction time as #49 showed they cost nothing at classification.
-- **The pages are drafts, not fixtures.** #55 and #58 own the committed data tables. Where a row was dropped or moved between faces to fit an ID-1 face at the renderer's row height, `pages.py` says so in a comment — a reader taking these as a starting point needs to know which deviations are mine and which are the document's.
+- **Real printed labels and real placement**, from `docs/research/hungarian-document-printed-labels.md` — §1–§5 for wording, §6 for layout. §6 was written *because* pass 1 got placement wrong.
+- **Accented Hungarian values** (`Ő`, `Ű`, `É`, `Á`, `Í`) in the vendored DejaVu, transliterated into the MRZ per ICAO Doc 9303 Part 3 §6.A.
+- **Invalid check digits** throughout (convention 8), built through `fixtures.identifiers`.
+- **The pages are drafts, not fixtures.** #55 and #58 own the committed data tables. Where a row was dropped or moved between faces to fit an ID-1 face, `pages.py` says so in a comment.
 
 ### The analysis unit, and why it is not the call
 
-[#49](https://github.com/akosgintl/document-intelligence/issues/49)'s method note is the thing to get right: five draws of one page are not five independent observations, and permuting *individual calls* reported an axis effect at p=0.009 that replication showed was pseudoreplication.
+[#49](https://github.com/akosgintl/document-intelligence/issues/49)'s method note is the thing to get right: eight draws of one page are not eight independent observations, and permuting *individual calls* reported an axis effect at p=0.009 that replication showed was pseudoreplication.
 
-The unit here is the **(document, Field) pair**, with that pair's accuracy under each variant averaged over its replicates first, compared by a **paired sign-flip permutation test**. Two Fields of one document are distinct measurements — different label, different value, different place on the page — where two draws of one page are not. Pairing on (document, Field) also removes the largest nuisance source outright: some Fields are simply harder than others.
-
-**What this design can and cannot detect.** Twenty-odd pairs at eight replicates will find an effect that moves whole Fields between right and wrong. It will not resolve a couple of points of accuracy, and a null result should not be read as evidence of no effect at that scale — which is the right calibration for #60, since the ticket asks whether placement matters enough to justify building the knob, not whether it is exactly zero.
+The unit is the **(document, Field) pair**, with that pair's accuracy under each level averaged over its replicates first, compared by a **paired sign-flip permutation test**. Two Fields of one document are distinct measurements where two draws of one page are not, and pairing on (document, Field) removes the largest nuisance source: some Fields are simply harder.
 
 ## Run it
 
@@ -60,34 +67,33 @@ The unit here is the **(document, Field) pair**, with that pair's accuracy under
 uv run python eval/prototype_label_placement/run.py
 ```
 
-`[r]` renders all nine variants to `pages_rendered/` for free — **look at them before spending anything.** `[1]`–`[9]` fire one variant, `[a]` fires all nine once.
+`[r]` renders all 24 cells to `pages_rendered/` for free — **look at them before spending anything.** `[1]`–`[24]` fire one cell, `[a]` fires all 24 once.
 
-One pass of `[a]` is **not** the answer: `anthropic_provider.py` sets no `temperature`, so the API default of 1.0 applies and every call is a draw from a distribution rather than a reading. It is there to eyeball a result and catch a broken page before the sequence spends seventy-two calls on the same mistake.
+One pass of `[a]` is **not** the answer: `anthropic_provider.py` sets no `temperature`, so every call is a draw from a distribution rather than a reading. It is there to catch a broken page before the sequence spends a hundred and forty-four calls on the same mistake — which is exactly what pass 1 failed to do.
 
 The answer comes from the replicated pass:
 
 ```
-uv run python eval/prototype_label_placement/sequence.py   # 72 billed calls, ~6 min
+uv run python eval/prototype_label_placement/sequence.py   # 144 billed calls, ~18 min
 uv run python eval/prototype_label_placement/analyse.py    # free, reads observations.jsonl
 ```
 
-`sequence.py` shuffles 8 replicates of all 9 cells into **one seeded random order** and records each call's position, so ordering effects can be tested rather than assumed away.
-
-Every result is appended to `observations.jsonl` as it arrives. That breaks the prototype no-persistence rule on purpose, for #49's reason: these observations cost real money, and losing them to a closed terminal means paying again.
+`sequence.py` shuffles 6 replicates of all 24 cells into **one seeded random order** and records each call's position, so ordering effects can be tested rather than assumed away. Every result is appended to `observations.jsonl` as it arrives — deliberately breaking the prototype no-persistence rule, for #49's reason: these cost real money.
 
 ## Cost
 
-`claude-sonnet-5` at the introductory $2 / $10 per MTok (through 2026-08-31). One extraction is roughly 4k input and 1–2k output tokens, so **~$0.02 per call and ~$1.50 for the full replicated pass.** Extraction output is an order of magnitude larger than #49's classification (a full Field object per Field, each with its own confidence, against ~117 output tokens for a classification), which is why the per-call cost is higher even though the input is comparable.
+`claude-sonnet-5` at the introductory $2 / $10 per MTok. ~4,930 input and ~727 output tokens per call, 7.5s each — about **$0.02 a call, $3 for the 144-call pass**.
 
 ## What this branch changes outside the prototype
 
-The candidate implementation, so the probe measures the real renderer rather than a lookalike — and so that the diff itself is evidence about how small the "widen `Geometry`" option actually is:
+The candidate implementation, so the probe measures the real renderer rather than a lookalike — and so the diff is itself evidence about how much code each of #60's options costs:
 
-- `Geometry.stacked: bool` → `Geometry.label_style: Literal["stacked", "inline", "column"]`, plus `Geometry.ruled` so the three card placements rule identically while the A4 invoice sheet keeps rendering byte-for-byte as it did on `main`.
-- `CARD_INLINE` and `CARD_COLUMN`: the same ID-1 card with **only** `label_style` changed. Same size, same type sizes, same row height — so a page at one placement differs from the `card` page in label placement and in nothing else. That is what makes the axis an axis.
-- A `Legend` element that proves no Field, drawn either in the body flow (2012) or composed upright and rotated a quarter turn into a reserved right-edge strip (2013). Pillow cannot draw rotated text, so the strip is the mechanism.
+- `Geometry.stacked: bool` → `Geometry.label_style`, with `stacked` / `inline` / `column` / **`per_row`**, plus `Geometry.ruled` so the A4 invoice sheet still renders byte-for-byte as on `main`.
+- `Row.place` and `Row.align`, honoured under `per_row`, and a `Pair` element for two fields sharing a line. **This is the per-row shape neither of #60's candidates proposed**, and #47 §6 shows it is the only one that can draw either card.
+- A `Legend` element that proves no Field, drawn either in the body flow (2012 licence) or composed upright and rotated a quarter turn into a reserved right-edge strip (2013).
+- `identifiers._transliterate` applies ICAO Doc 9303 Part 3 §6.A and raises `AmbiguousTransliteration` on `Ö`/`Ü`, which 9303 leaves to the issuing State.
 
-All 33 existing `tests/test_fixture_renderer.py` cases still pass and no committed fixture changes. **None of this is a decision** — if placement measures as noise, the widening comes back out and #60 drops the fidelity claim instead.
+All 33 existing `tests/test_fixture_renderer.py` cases pass and no committed fixture changes. **None of this is a decision.**
 
 ## ⚠️ Corrections after reviewing the PRADO specimens directly
 
