@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Regenerate every committed fixture from its data table.
 
     uv run python -m fixtures.generate

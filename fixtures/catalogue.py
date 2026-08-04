@@ -10,7 +10,8 @@ editing a printed value here changes the expectation with it and the two can nev
    not a standard, is what these documents actually print (#47, #48). Watch the dates: there is
    no one format per document, and the 2012 identity card prints three on one card.
 2. Give every value that proves a Field a keyword argument named for that Field.
-3. Name the Fields the page deliberately shows nothing for in `absent`.
+3. Name the Fields the page deliberately shows nothing for in the Example's `absent` — and, for
+   a key that every row of a table lacks because no column prints it, the Table's `absent_keys`.
 4. Build any identifier through `fixtures.identifiers`, never by hand — a hand-written one can
    accidentally be somebody's real number.
 5. Run `uv run python -m fixtures.generate`.
@@ -66,7 +67,7 @@ _INVOICE_SAMPLE = Example(
                         into="lineItems",
                         # The item table prints net amounts only; the gross figure appears solely in
                         # the totals block, which the Schema calls out as the common case.
-                        absent=("grossAmount",),
+                        absent_keys=("grossAmount",),
                         columns=(
                             Column("Megnevezés", 370),
                             Column("Mennyiség", 135, align="right"),
@@ -186,7 +187,7 @@ _INVOICE_HAPPY_PATH = Example(
                         into="lineItems",
                         # Net amounts only, as the sample's table is: the gross figure appears in
                         # the totals block, which the Schema calls out as the common case.
-                        absent=("grossAmount",),
+                        absent_keys=("grossAmount",),
                         columns=(
                             Column("Megnevezés", 230),
                             Column("Mennyiség", 135, align="right"),
@@ -351,7 +352,7 @@ _INVOICE_SIMPLIFIED = Example(
                         into="lineItems",
                         # The whole point of the fixture: a gross-only table, so every line owes a
                         # null net and a null VAT amount.
-                        absent=("netAmount", "vatAmount"),
+                        absent_keys=("netAmount", "vatAmount"),
                         columns=(
                             Column("Megnevezés", 240),
                             Column("Mennyiség", 135, align="right"),

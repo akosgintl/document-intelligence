@@ -42,6 +42,10 @@ _Avoid_: Data page, biographic page.
 The block of fixed-format characters an identity document carries per ICAO Doc 9303 — a redundant re-encoding of data already printed in the VIZ, whose value is the check digits that let a caller verify what was read. Modelled as one opaque Field holding the characters verbatim, never decomposed into its constituent parts, since a check digit the system computed rather than transcribed verifies nothing.
 _Avoid_: Machine code, barcode, OCR line.
 
+**Face**:
+One physically distinct printed surface of a document — a side of a card, a sheet of paper. The unit a fixture is authored in (`fixtures/model.py`), because a document's Fields are distributed across its faces: the address card prints its personal identifier and its address on opposite faces by law, so a capture missing one is missing Fields. Distinct from a Page, which is what a Submission is split into once captured — several faces can land on one Page.
+_Avoid_: Side, surface. Not a synonym for **VIZ**: the VIZ is the human-readable zone as opposed to the MRZ, and both are printed on the same face.
+
 **NAV Online Számla**:
 Hungary's real-time invoice reporting system, whose `invoiceData` XSD (namespace version 3.0) defines the data an issuer must report to the tax authority for every invoice. It shapes the invoice Schema's Field set because NAV's reporting requirements largely track what the VAT Act already obliges an invoice to print — but only largely: some reported data is never printed (the exchange rate, and the submission's own metadata), and is therefore not extractable and not modelled. The Schema's job is to capture what the page shows, leaving the caller to assemble the report.
 _Avoid_: Online Invoice, NAV XML (as domain vocabulary — the 2026 EN 16931 mandatory e-invoicing obligation is a separate scheme, not this one).
