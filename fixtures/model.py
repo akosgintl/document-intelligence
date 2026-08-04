@@ -105,7 +105,24 @@ class Mrz:
     into: str = "mrz"
 
 
-Element = Row | Table | Mrz
+@dataclass(frozen=True)
+class Legend:
+    """PROTOTYPE (#60) — a block of field names set apart from the values it names.
+
+    The driving licence prints no label beside any value: the recto shows bare EU numbers and
+    the field names appear exactly once, as a legend on the verso — horizontally on the 2012
+    card, rotated 90° along the right edge on the 2013 one (#47's transcription). It is the
+    only place the licence's field names appear anywhere on the card.
+
+    Proves no Field, which is what separates it from a `Row`: it is the document's own key,
+    not a value an expectation could assert.
+    """
+
+    lines: Sequence[str]
+    rotated: bool = True
+
+
+Element = Row | Table | Mrz | Legend
 
 
 @dataclass(frozen=True)
@@ -139,7 +156,10 @@ class Submission:
     """
 
     faces: Sequence[Face]
-    style: Literal["card", "sheet"] = "card"
+    style: Literal["card", "sheet", "card_inline", "card_column"] = "card"
+    """PROTOTYPE (#60): `card_inline` and `card_column` are the same ID-1 card at the two label
+    placements `card` cannot draw. They exist for `eval/prototype_label_placement/` to render
+    the same data table three ways; no committed fixture names one."""
 
 
 @dataclass(frozen=True)

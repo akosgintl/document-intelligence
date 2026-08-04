@@ -11,15 +11,16 @@ block, a run of label/value lines and an optional zone at the foot, so the *elem
 is genuinely shared and a fifth geometry would only be needed by a document that stops being a
 stack of labelled values.
 
-**Label placement is a different axis, and on it `card` is knowingly wrong for two of the four
-types.** Per #47, the eID identity card sets its labels inline (`Hun/Eng:` with the value
-following on the same line) and the address card sets them in a label column beside a value
-column, where `card` stacks all four. The driving licence's verso legend is set rotated 90°
-along the right edge, which this module cannot draw at all — and that legend is the only place
-the licence's field names appear anywhere on the card. #51 shipped the seam and deliberately
-did not add the knob; **#60 owns the decision** (widen `Geometry` versus per-type layout
-functions) and must land before #53/#54/#55/#58 author fixtures against this. The conventions
-this module enforces are recorded as an ADR by #50.
+**PROTOTYPE BRANCH — the label-placement knob #60 owns is drafted here, not decided.**
+Per #47, the eID identity card sets its labels inline (`Hun/Eng:` with the value following on
+the same line) and the address card sets them in a label column beside a value column, where
+`card` stacked all four; the driving licence's verso legend is set rotated 90° along the right
+edge, which this module could not draw at all. This branch widens `Geometry.stacked` into a
+three-way `label_style` and adds a rotated `Legend` element, so that
+`eval/prototype_label_placement/` can *measure* whether either matters to extraction before
+#60 commits to building them. Nothing here is settled: if placement measures as noise, the
+`label_style` widening comes back out and the fidelity claim is dropped instead. The
+conventions this module enforces are recorded as an ADR by #50.
 
 Deliberately low fidelity: text only, no photograph, no hologram, no OVD, no security printing,
 and a MINTA / SPECIMEN wash across every page (#46, convention 2). #49 measured every fidelity
@@ -29,14 +30,14 @@ print the right words in the right places.
 
 import io
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
-from typing import assert_never
+from dataclasses import dataclass, replace
+from typing import Literal, assert_never
 
 from PIL import Image, ImageDraw
 from PIL.ImageFont import FreeTypeFont
 
 from fixtures import fonts
-from fixtures.model import Example, Face, Mrz, Row, Submission, Table
+from fixtures.model import Example, Face, Legend, Mrz, Row, Submission, Table
 
 MARGIN = 36
 _INK = "black"
@@ -46,6 +47,19 @@ _COLUMN_GUTTER = 20
 # The floor `_fitted` shrinks a label to. Below this a bilingual label stops being legible at
 # all, so a fixture that needs it is better off saying less.
 _MINIMUM_TYPE = 9
+# PROTOTYPE (#60): the width a rotated Legend claims along the right edge of its face. The body
+# is drawn into what's left, so a legend costs the face horizontal room rather than overlapping
+# the values it names.
+_LEGEND_STRIP = 84
+
+LabelStyle = Literal["stacked", "inline", "column"]
+"""Where a Row's label sits relative to its value.
+
+- `stacked` — label above value, which is what fits an ID-1 card: a bilingual label is far too
+  long to sit beside a value in 85.6 mm.
+- `inline` — `label value` on one line, as the eID identity card sets it (#47).
+- `column` — a label column beside a value column, as the address card and an A4 invoice set it.
+"""
 
 
 class FixtureDoesNotFit(Exception):
@@ -66,7 +80,15 @@ class Geometry:
 
     size: tuple[int, int]
     outlined: bool
-    stacked: bool
+    label_style: LabelStyle
+    ruled: bool
+    """Whether a hairline separates one row from the next.
+
+    A card's rows need it — they are set close together with no other separation. An invoice
+    sheet never had it. It is a property of the geometry rather than of the label style so that
+    the three card placements rule identically: a probe whose `column` pages were the only ones
+    without row rules would be measuring rules alongside label placement.
+    """
     title: int
     label: int
     value: int
@@ -98,7 +120,8 @@ class Frame:
 CARD = Geometry(
     size=(1012, 638),  # ID-1: 85.6 x 53.98 mm at ~300 dpi
     outlined=True,
-    stacked=True,
+    label_style="stacked",
+    ruled=True,
     title=26,
     label=15,
     value=23,
@@ -112,7 +135,8 @@ CARD = Geometry(
 SHEET = Geometry(
     size=(1240, 1754),  # A4 at 150 dpi
     outlined=False,
-    stacked=False,
+    label_style="column",
+    ruled=False,
     title=40,
     label=21,
     value=22,
@@ -124,7 +148,19 @@ SHEET = Geometry(
     value_column=320,
 )
 
-GEOMETRIES: dict[str, Geometry] = {"card": CARD, "sheet": SHEET}
+# PROTOTYPE (#60): the same ID-1 card at the two label placements `card` cannot draw. Everything
+# but `label_style` is held identical to CARD — same size, same type sizes, same row height — so
+# that a page rendered at one of these differs from the `card` page in label placement and in
+# nothing else. That is what makes the probe's axis an axis.
+CARD_INLINE = replace(CARD, label_style="inline")
+CARD_COLUMN = replace(CARD, label_style="column", value_column=330)
+
+GEOMETRIES: dict[str, Geometry] = {
+    "card": CARD,
+    "sheet": SHEET,
+    "card_inline": CARD_INLINE,
+    "card_column": CARD_COLUMN,
+}
 
 
 def _fitted(
@@ -149,57 +185,103 @@ def _fitted(
 
 def _draw_elements(
     draw: ImageDraw.ImageDraw,
-    elements: Sequence[Row | Table],
+    elements: Sequence[Row | Table | Legend],
     *,
     top: int,
     frame: Frame,
 ) -> int:
     """Draw every element top to bottom, returning the y the last one ended at."""
     y = top
-    geometry = frame.geometry
     for element in elements:
         match element:
             case Row():
-                if geometry.stacked:
-                    draw.text(
-                        (frame.left, y),
-                        element.label,
-                        font=_fitted(element.label, frame.width, fonts.sans, geometry.label),
-                        fill=_LABEL_INK,
-                    )
-                    draw.text(
-                        (frame.left, y + geometry.label + 6),
-                        element.printed,
-                        font=_fitted(element.printed, frame.width, fonts.sans_bold, geometry.value),
-                        fill=_INK,
-                    )
-                    rule_y = y + geometry.row_height - 8
-                    draw.line((frame.left, rule_y, frame.right, rule_y), fill=_RULE)
-                else:
-                    value_left = frame.left + geometry.value_column
-                    draw.text(
-                        (frame.left, y),
-                        element.label,
-                        font=_fitted(element.label, geometry.value_column - 20, fonts.sans, geometry.label),
-                        fill=_LABEL_INK,
-                    )
-                    draw.text(
-                        (value_left, y),
-                        element.printed,
-                        font=_fitted(
-                            element.printed, frame.right - value_left, fonts.sans_bold, geometry.value
-                        ),
-                        fill=_INK,
-                    )
-                y += geometry.row_height
+                y = _draw_row(draw, element, top=y, frame=frame)
             case Table():
                 y = _draw_table(draw, element, top=y, frame=frame)
+            case Legend():
+                y = _draw_flowed_legend(draw, element, top=y, frame=frame)
             case _:
                 # A new element type must be given a drawing *and* a projection, or a fixture
                 # would assert a value its page never printed. mypy fails here rather than
                 # letting it draw nothing — `expectations.py` carries the same guard.
                 assert_never(element)
     return y
+
+
+def _rule(draw: ImageDraw.ImageDraw, *, top: int, frame: Frame) -> None:
+    """The hairline under one row, where the geometry sets rows off from each other."""
+    if not frame.geometry.ruled:
+        return
+    y = top + frame.geometry.row_height - 8
+    draw.line((frame.left, y, frame.right, y), fill=_RULE)
+
+
+def _draw_row(
+    draw: ImageDraw.ImageDraw,
+    row: Row,
+    *,
+    top: int,
+    frame: Frame,
+) -> int:
+    """Draw one label/value line at the geometry's label placement, returning the next y.
+
+    PROTOTYPE (#60): the three placements are the axis being measured. They are held to the
+    same `row_height` deliberately — an inline or column row needs less vertical room than a
+    stacked one, and taking it would change page density alongside label placement, leaving
+    the probe unable to say which of the two the model responded to.
+    """
+    geometry = frame.geometry
+    match geometry.label_style:
+        case "stacked":
+            draw.text(
+                (frame.left, top),
+                row.label,
+                font=_fitted(row.label, frame.width, fonts.sans, geometry.label),
+                fill=_LABEL_INK,
+            )
+            draw.text(
+                (frame.left, top + geometry.label + 6),
+                row.printed,
+                font=_fitted(row.printed, frame.width, fonts.sans_bold, geometry.value),
+                fill=_INK,
+            )
+            _rule(draw, top=top, frame=frame)
+        case "inline":
+            # The label keeps its own size so the pair reads as label-then-value rather than as
+            # one run of text; the value starts a gutter past wherever the label actually ends,
+            # which is what "inline" means on the eID card — not a shared tab stop.
+            label_font = _fitted(row.label, frame.width // 2, fonts.sans, geometry.label)
+            draw.text((frame.left, top), row.label, font=label_font, fill=_LABEL_INK)
+            value_left = frame.left + int(label_font.getlength(row.label))
+            if row.label:
+                value_left += _COLUMN_GUTTER
+            draw.text(
+                (value_left, top),
+                row.printed,
+                font=_fitted(row.printed, frame.right - value_left, fonts.sans_bold, geometry.value),
+                fill=_INK,
+            )
+            _rule(draw, top=top, frame=frame)
+        case "column":
+            value_left = frame.left + geometry.value_column
+            draw.text(
+                (frame.left, top),
+                row.label,
+                font=_fitted(
+                    row.label, geometry.value_column - _COLUMN_GUTTER, fonts.sans, geometry.label
+                ),
+                fill=_LABEL_INK,
+            )
+            draw.text(
+                (value_left, top),
+                row.printed,
+                font=_fitted(row.printed, frame.right - value_left, fonts.sans_bold, geometry.value),
+                fill=_INK,
+            )
+            _rule(draw, top=top, frame=frame)
+        case _:
+            assert_never(geometry.label_style)
+    return top + geometry.row_height
 
 
 def _draw_table(
@@ -285,6 +367,62 @@ def _draw_mrz(
     return top
 
 
+def _draw_flowed_legend(
+    draw: ImageDraw.ImageDraw,
+    legend: Legend,
+    *,
+    top: int,
+    frame: Frame,
+) -> int:
+    """Draw a horizontal legend in the body flow, as the 2012 licence sets it."""
+    geometry = frame.geometry
+    y = top + 10
+    draw.line((frame.left, y - 6, frame.right, y - 6), fill=_RULE)
+    for line in legend.lines:
+        draw.text(
+            (frame.left, y),
+            line,
+            font=_fitted(line, frame.width, fonts.sans, geometry.label),
+            fill=_LABEL_INK,
+        )
+        y += geometry.label + 8
+    return y
+
+
+def _draw_rotated_legend(
+    image: Image.Image,
+    legend: Legend,
+    *,
+    geometry: Geometry,
+) -> None:
+    """Set a legend on its side along the right edge, as the 2013 licence prints it.
+
+    Drawn into its own upright image and rotated in, because Pillow cannot draw rotated text:
+    the run is composed horizontally at the face's *height*, then turned a quarter turn and
+    pasted into the strip `_render_face` reserved for it.
+    """
+    width, height = geometry.size
+    run_length = height - 2 * geometry.pad
+    panel = Image.new("RGB", (run_length, _LEGEND_STRIP), "white")
+    panel_draw = ImageDraw.Draw(panel)
+
+    y = 0
+    for line in legend.lines:
+        font = _fitted(line, run_length, fonts.sans, geometry.label)
+        panel_draw.text((0, y), line, font=font, fill=_LABEL_INK)
+        y += geometry.label + 6
+    if y > _LEGEND_STRIP:
+        raise FixtureDoesNotFit(
+            f"a rotated legend of {len(legend.lines)} lines needs {y}px of strip but only "
+            f"{_LEGEND_STRIP}px is reserved — set it in fewer, longer lines"
+        )
+
+    image.paste(
+        panel.rotate(90, expand=True),
+        (width - geometry.pad - _LEGEND_STRIP, geometry.pad),
+    )
+
+
 def _render_face(face: Face, geometry: Geometry) -> Image.Image:
     width, height = geometry.size
     image = Image.new("RGB", geometry.size, "white")
@@ -293,7 +431,11 @@ def _render_face(face: Face, geometry: Geometry) -> Image.Image:
     if geometry.outlined:
         draw.rounded_rectangle((3, 3, width - 4, height - 4), radius=22, outline=_INK, width=3)
 
-    frame = Frame(left=geometry.pad, right=width - geometry.pad, geometry=geometry)
+    # A rotated legend claims the right edge, so the body is drawn into what's left of the face
+    # rather than under it. A horizontal legend takes no strip — it flows with the body.
+    rotated_legends = [e for e in face.elements if isinstance(e, Legend) and e.rotated]
+    strip = _LEGEND_STRIP + _COLUMN_GUTTER if rotated_legends else 0
+    frame = Frame(left=geometry.pad, right=width - geometry.pad - strip, geometry=geometry)
 
     y = geometry.pad
     for line in face.title:
@@ -313,7 +455,11 @@ def _render_face(face: Face, geometry: Geometry) -> Image.Image:
     # in the middle. `body` is a `list[Row | Table]`, which is what lets `_draw_elements` prove
     # its match is exhaustive.
     zones = [element for element in face.elements if isinstance(element, Mrz)]
-    body = [element for element in face.elements if not isinstance(element, Mrz)]
+    body = [
+        element
+        for element in face.elements
+        if not isinstance(element, Mrz) and not (isinstance(element, Legend) and element.rotated)
+    ]
 
     mrz_top = _draw_mrz(draw, zones, bottom=height - geometry.pad, frame=frame)
     end = _draw_elements(draw, body, top=y, frame=frame)
@@ -322,6 +468,8 @@ def _render_face(face: Face, geometry: Geometry) -> Image.Image:
             f"a face needs {end}px but only {mrz_top}px is free — split it across faces or "
             f"shorten it rather than letting the page clip what its expectation asserts"
         )
+    for legend in rotated_legends:
+        _draw_rotated_legend(image, legend, geometry=geometry)
     return image
 
 

@@ -219,3 +219,6 @@ __marimo__/
 
 # PRADO specimen captures — © Council of the EU, not redistributable (see issue #47)
 docs/prado/
+
+# PROTOTYPE (#60): rendered probe pages are reproducible from the data table, and free.
+eval/prototype_label_placement/pages_rendered/

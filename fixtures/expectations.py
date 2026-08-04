@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any, assert_never
 
-from fixtures.model import Example, Face, Mrz, Row, Table
+from fixtures.model import Example, Face, Legend, Mrz, Row, Table
 
 
 def _face_fields(face: Face) -> dict[str, Any]:
@@ -27,6 +27,11 @@ def _face_fields(face: Face) -> dict[str, Any]:
                     unprinted | {key: value for cell in row for key, value in cell.fields.items()}
                     for row in element.rows
                 ]
+            case Legend():
+                # A legend names Fields, it does not carry them — the licence's verso legend
+                # says the value beside `3.` is a date and place of birth, and asserting
+                # anything from that would assert the document's key rather than its content.
+                pass
             case _:
                 # A new element type must project as well as draw. mypy fails here rather than
                 # letting a drawn value go unasserted — `render.py` carries the same guard.
