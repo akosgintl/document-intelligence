@@ -94,8 +94,12 @@ uv run python scripts/manual_test.py path/to/your/document.pdf
 Regenerate the sample invoice (e.g. to change its fields) with:
 
 ```sh
-uv run python scripts/generate_sample_invoice.py
+uv run python -m fixtures.generate
 ```
+
+That command draws every committed fixture — these samples and the golden examples under
+`eval/golden/` — from the data tables in `fixtures/catalogue.py`. Edit the data table, not the
+image: an example's `expected.json` is read out of the same table that draws its page.
 
 Equivalent plain `curl`, if you'd rather not run the script:
 

@@ -24,6 +24,19 @@ different golden set.
 
 ## Adding a golden example
 
+Golden examples are **not written by hand** — they are drawn by the shared fixture renderer, so
+that an example's image and its `expected.json` cannot drift apart. Add a data table to
+`fixtures/catalogue.py` (its docstring is the step-by-step) and run:
+
+```sh
+uv run python -m fixtures.generate
+```
+
+That one command writes both fixture surfaces: the golden examples here, and the manual-testing
+samples under `scripts/samples/`. What it produces is the layout below.
+
+### The layout it produces
+
 Each golden example is a directory under `eval/golden/` containing:
 
 - `submission.<ext>` — the file to submit (`.pdf`, `.png`, `.jpg`, or `.webp`)
@@ -53,6 +66,8 @@ The harness discovers examples by recursively globbing for `expected.json`, so n
 `eval/golden/invoice/basic/`, grouped by Document Type) is just for organization — the directory
 name has no effect on evaluation.
 
-The two committed `invoice/*` examples were rendered by `eval/golden/generate_golden_invoices.py`;
-re-run it after editing the invoice data at the top of that file to keep `submission.png` and
-`expected.json` in sync.
+The two committed `invoice/*` examples predate the renderer and are **known broken**: they pin
+`schema_version: 1`, but classification binds to the latest version and invoice v2 has neither
+`vendorName` nor `totalAmount`. They are retired and replaced with v2 examples by
+[#56](https://github.com/akosgintl/document-intelligence/issues/56); until then, expect them to
+fail a run. Their generator has been absorbed into `fixtures/`.
