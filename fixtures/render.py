@@ -11,15 +11,27 @@ block, a run of label/value lines and an optional zone at the foot, so the *elem
 is genuinely shared and a fifth geometry would only be needed by a document that stops being a
 stack of labelled values.
 
-**Label placement is a different axis, and on it `card` is knowingly wrong for two of the four
-types.** Per #47, the eID identity card sets its labels inline (`Hun/Eng:` with the value
-following on the same line) and the address card sets them in a label column beside a value
-column, where `card` stacks all four. The driving licence's verso legend is set rotated 90°
-along the right edge, which this module cannot draw at all — and that legend is the only place
-the licence's field names appear anywhere on the card. #51 shipped the seam and deliberately
-did not add the knob; **#60 owns the decision** (widen `Geometry` versus per-type layout
-functions) and must land before #53/#54/#55/#58 author fixtures against this. The conventions
-this module enforces are recorded as an ADR by #50.
+**Label placement is a different axis, and on it `card` is knowingly wrong — but not in the way
+this docstring used to claim.** It previously said, citing #47, that the eID identity card sets
+its labels inline and the address card sets them in a label column. #47 recorded neither: its
+sections 1–5 are label/field tables and say nothing about placement, and the sentence was an
+inference. **#47 §6 now records placement from the specimens**, and it is not a per-type choice
+at all — the eID *stacks* its name, sets `Nem/Sex:` and `Állampolgárság/Nationality:` inline
+two-to-a-row, and right-aligns its dates and document number, while the address card runs
+`Családi és utónév:` inline on its recto and stacked on its verso. So no single placement draws
+either card, and `card`'s uniform stacking is wrong for both.
+
+The driving licence's verso legend is set rotated 90° along the right edge, which this module
+cannot draw at all — and that legend is the only place the licence's field names appear anywhere
+on the card.
+
+#51 shipped the seam and deliberately did not add the knob; **#60 owns the decision** and must
+land before #53/#54/#55/#58 author fixtures against this. Two things measured since it was
+written bear on it: label placement made no detectable difference to extraction accuracy across
+144 extractions, nor did the presence of the licence's legend across 24 — so neither is
+justified by accuracy, only by fidelity. And #60's framing of the choice (widen `Geometry`
+versus per-type layout functions) cannot express what §6 found, since both options pick one
+placement per Document Type. The conventions this module enforces are recorded as an ADR by #50.
 
 Deliberately low fidelity: text only, no photograph, no hologram, no OVD, no security printing,
 and a MINTA / SPECIMEN wash across every page (#46, convention 2). #49 measured every fidelity

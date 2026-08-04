@@ -171,17 +171,80 @@ def icao_check_digit(data: str) -> str:
     return str(total % 10)
 
 
-def _transliterate(name: str) -> str:
-    """A name as the zone spells it: every separator becomes a filler.
+# ICAO Doc 9303 Part 3, §6.A "Transliteration of Multinational Latin-based Characters", for
+# every accented letter Hungarian prints. Each of these carries exactly *one* recommended
+# transliteration in that table, including both double-acutes — `Ő` (U+0150) is listed as `O`
+# and `Ű` (U+0170) as `U`, with no two-letter variant offered.
+_TRANSLITERATION = {
+    "Á": "A",
+    "É": "E",
+    "Í": "I",
+    "Ó": "O",
+    "Ő": "O",
+    "Ú": "U",
+    "Ű": "U",
+}
 
-    The zone alphabet has no space, no hyphen and no accent, so `KOVÁCS-TŐKE` is written
-    `KOVACS<TOKE`. That is why the Schemas warn the names in the zone will not always match the
-    printed ones and must be transcribed rather than reconciled. Callers pass names already
-    stripped of accents; only the separators are handled here.
+# The characters §6.A gives *more than one* recommended transliteration for. The choice belongs
+# to the issuing State, and neither #47's PRADO transcription nor #48's statute pass found a
+# Hungarian specimen or rule that settles it, so a fixture cannot know which one Hungary writes.
+_STATE_DEPENDENT = {
+    "Ö": "OE or O",
+    "Ü": "UE or UXX or U",
+    "Ä": "AE or A",
+    "Å": "AA or A",
+    "Ñ": "N or NXX",
+}
+
+
+class AmbiguousTransliteration(Exception):
+    """A name carries a character 9303 does not transliterate one way.
+
+    Raised rather than guessed: a fixture asserting `TOEROEK` where Hungary writes `TOROK` is a
+    wrong expectation wearing a standard's clothes, and the eval would blame the model for it.
     """
-    for separator in (" ", "-", "'"):
-        name = name.replace(separator, FILLER)
-    return name
+
+
+def _transliterate(name: str) -> str:
+    """A name as the zone spells it: diacritics resolved per 9303, separators turned to fillers.
+
+    9303-3 §4.6 requires the MRZ name "without diacritical marks", and leaves the issuing State
+    to transliterate national characters into the zone's A–Z alphabet; §6.A is the table it
+    transliterates them *to*. For the letters that make a name Hungarian that table is
+    unambiguous — `Á→A`, `É→E`, `Í→I`, `Ó→O`, `Ú→U`, and both double-acutes, `Ő→O` and `Ű→U`.
+    The genuine Hungarian specimen transcribed in
+    `docs/research/hungarian-passport-field-layout.md` §7.4 agrees: its VIZ prints `ROZÁLIA` and
+    its zone reads `ROZALIA`.
+
+    `Ö` and `Ü` are the exception and are refused — see `_STATE_DEPENDENT`.
+
+    Separators follow §4.6 as already recorded in that same research note: a hyphen or a space
+    becomes one filler, an apostrophe is dropped with no filler at all. So `KOVÁCS-TŐKE` is
+    written `KOVACS<TOKE` and `O'BRIEN` is written `OBRIEN`.
+    """
+    name = name.upper()
+    ambiguous = sorted({character for character in name if character in _STATE_DEPENDENT})
+    if ambiguous:
+        detail = ", ".join(f"{c!r} ({_STATE_DEPENDENT[c]})" for c in ambiguous)
+        raise AmbiguousTransliteration(
+            f"{name!r} carries {detail} — 9303 §6.A offers more than one transliteration and the "
+            f"choice is the issuing State's, which no Hungarian source settles. Choose a name "
+            f"without it rather than asserting a zone the document may not print."
+        )
+
+    zone = "".join(
+        FILLER if character in " -" else _TRANSLITERATION.get(character, character)
+        for character in name
+        if character != "'"
+    )
+    unwritable = sorted({c for c in zone if c != FILLER and not ("A" <= c <= "Z")})
+    if unwritable:
+        raise AmbiguousTransliteration(
+            f"{name!r} transliterates to {zone!r}, which is not writable in the zone's A-Z "
+            f"alphabet: {unwritable}. Add the character to _TRANSLITERATION with its 9303 §6.A "
+            f"row, or use a name without it."
+        )
+    return zone
 
 
 def _mrz_name(surname: str, given_names: str, width: int) -> str:
