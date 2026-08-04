@@ -168,6 +168,68 @@ def test_generated_identity_card_mrz_has_td1_geometry():
     assert lines[2].startswith("KOVACS<TOKE<<ORSEBET<URMOS")
 
 
+def test_the_zone_transliterates_every_hungarian_diacritic_to_one_letter():
+    """ICAO Doc 9303 Part 3 §6.A gives each of these a single recommended transliteration,
+    including both double-acutes: `Ő` (U+0150) is `O` and `Ű` (U+0170) is `U`. The genuine
+    HUN-BO-06001 specimen agrees — its VIZ reads `SZÉPENÉ KISS ROZÁLIA` and its zone
+    `SZEPENE<KISS<<ROZALIA`."""
+    lines = identifiers.mrz_td1(
+        document_code="I",
+        issuing_state="HUN",
+        surname="SZÉPENÉ KISS",
+        given_names="ROZÁLIA",
+        document_number="000188KE",
+        nationality="HUN",
+        date_of_birth=date(1979, 6, 30),
+        sex="F",
+        date_of_expiry=date(2028, 6, 30),
+    )
+
+    assert lines[2].startswith("SZEPENE<KISS<<ROZALIA")
+    assert lines[0].startswith("I<HUN000188KE")
+
+
+def test_the_zone_drops_an_apostrophe_without_leaving_a_filler():
+    """9303-3 §4.6, as recorded in docs/research/hungarian-passport-field-layout.md: a hyphen or
+    space becomes one filler, an apostrophe is simply omitted."""
+    lines = identifiers.mrz_td3(
+        document_code="P",
+        issuing_state="HUN",
+        surname="O'BRIEN-TÓTH",
+        given_names="ÍRISZ",
+        document_number="BD0002028",
+        nationality="HUN",
+        date_of_birth=date(1979, 6, 30),
+        sex="F",
+        date_of_expiry=date(2032, 3, 14),
+    )
+
+    assert lines[0].startswith("P<HUNOBRIEN<TOTH<<IRISZ")
+
+
+@pytest.mark.parametrize(
+    ("name", "offered"),
+    [("TÖRÖK GÁBOR", "OE or O"), ("MÜLLER ANNA", "UE or UXX or U")],
+)
+def test_the_zone_refuses_a_letter_9303_transliterates_more_than_one_way(name, offered):
+    """§6.A offers two or three transliterations for `Ö` and `Ü` and leaves the choice to the
+    issuing State. No Hungarian specimen captured by #47 carries either in a name, and #48's
+    statute pass found no rule, so a fixture that guessed would assert a zone the document may
+    not print — and the eval would blame the model for it."""
+    with pytest.raises(identifiers.AmbiguousTransliteration, match=re.escape(offered)):
+        identifiers.mrz_td1(
+            document_code="I",
+            issuing_state="HUN",
+            surname=name,
+            given_names="X",
+            document_number="000188KE",
+            nationality="HUN",
+            date_of_birth=date(1979, 6, 30),
+            sex="F",
+            date_of_expiry=date(2028, 6, 30),
+        )
+
+
 def _address_card_example() -> Example:
     """A cut-down address card: enough of a data table to exercise every way a Field is proven."""
     return Example(

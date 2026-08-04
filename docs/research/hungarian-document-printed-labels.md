@@ -6,7 +6,7 @@ Transcribed 2026-08-01 from PRADO specimen images, resolving [#47](https://githu
 
 The five Document Type schemas ([#40](https://github.com/akosgintl/document-intelligence/issues/40)–[#45](https://github.com/akosgintl/document-intelligence/issues/45)) deliberately used *semantic descriptions* rather than quoted label text, because PRADO 403'd throughout that research and ADR-0007 would have frozen a guessed label into v1. A renderer has no such escape — it must print something. This file records what the documents actually print.
 
-**Scope: label wording and layout only.** The other research notes (`hungarian-id-card-field-layout.md`, `hungarian-passport-field-layout.md`, `hungarian-driving-licence-field-layout.md`, `hungarian-other-id-documents.md`) remain the reference for field *semantics*; nothing here supersedes them.
+**Scope: label wording and layout only.** Sections 1–5 were transcribed 2026-08-01 and cover **wording**; **§6 covers placement** and was added 2026-08-05, after the wording-only sections were read downstream as if they described layout. §7 lists the corrections that re-reading produced. The other research notes (`hungarian-id-card-field-layout.md`, `hungarian-passport-field-layout.md`, `hungarian-driving-licence-field-layout.md`, `hungarian-other-id-documents.md`) remain the reference for field *semantics*; nothing here supersedes them.
 
 ## Provenance and the copyright constraint
 
@@ -191,6 +191,71 @@ Two-line TD3 MRZ at the foot. `KEK KH` observed as the authority value.
 **Unread, honestly:** the bracketed numbers on the last three labels are a smear at 600 px and I could not resolve them. The *label text* on all three is legible and is quoted above with confidence; only the parenthesised digits are unknown. They are conventionally 8/9/10 in some order, but this file does not assert what it could not read — resolve them from a higher-resolution scan or from statute before printing them.
 
 ---
+
+## 6. Label placement — added 2026-08-05, and the gap that made it necessary
+
+**This file claimed "label wording and layout" as its scope and delivered only wording.** Every section above is a `label → field` table; none of them says where on the card the label sits relative to its value. Downstream that gap got filled by guessing: [#60](https://github.com/akosgintl/document-intelligence/issues/60) and `fixtures/render.py`'s module docstring both assert, citing this file, that "the eID identity card sets its labels **inline**". This file never said that, and the specimen does not support it.
+
+Re-read from the same PRADO captures, at 4–5× upscale.
+
+### The eID identity card mixes three placements on one face
+
+`HUN-BO-06001`, recto:
+
+| Rows | Placement |
+|---|---|
+| `Családi és utónév/Family name and Given name:` | **stacked** — label on its own line, `SZÉPENÉ KISS ROZÁLIA` set larger and bold below it |
+| `Nem/Sex:` and `Állampolgárság/Nationality:` | **inline, two per row** — `Nem/Sex: N/F` on the left and `Állampolgárság/Nationality: HUN` on the right of the *same* line |
+| `Születési idő/…`, `Érvényességi idő/…`, `Okmányazonosító/…` | **label left, value right-aligned** to the card's right margin |
+| `CAN:` | **inline** |
+
+Verso: `Születési hely/…`, `Születési családi és utónév/…` and `Anyja születési neve/…` are all **stacked**; `Kiállító hatóság/Issuing authority: BELÜGYMINISZTÉRIUM` is **inline**; the issue date is right-aligned and unlabelled.
+
+So the eID is not "an inline card". It is a card on which the name is stacked, two fields share an inline row, three are right-aligned, and one more is inline — and the same distinction repeats on the verso. **A renderer that picks one label placement per Document Type cannot draw this card**, which is a constraint neither of #60's two candidate shapes was framed around.
+
+### The address card mixes placements too — and places the same label two ways
+
+`HUN-HO-10001`. Recto: `Családi és utónév:DEBRECENI-SZATMÁRI ANDREA` runs **inline with no space after the colon**; `Születési név:`, `Anyja neve:`, `Lakóhely:` and `Kiállító hatóság:` put their values at a **tab stop** (a label column); and there is a **second column at the right** carrying `Bejelentési idő:` against each address, plus `Érvényességi ideje:` and the unlabelled issue date.
+
+Verso: `Személyi azonosító: 2-720216-1673` is **inline**, but `Családi és utónév:` is **stacked** — the same label, placed differently on the two faces of one card.
+
+### Summary, replacing the placement claims made elsewhere
+
+| Type | What it actually does |
+|---|---|
+| Passport (`HUN-AO-03001`) | Label above value throughout; `Családi név` (1) and `Utónév(-ek)` (2) are **separate labelled fields**, not one combined line |
+| Identity card, eID 2016/2021 | **Mixed** — stacked name, inline pairs, right-aligned values (above) |
+| Identity card, laminated 2000/2012 | Label above value |
+| Address card | **Mixed** — inline, label column, and a right-hand second column (above) |
+| Driving licence | No labels beside values; bare EU numbers, plus the rotated verso legend |
+
+### The name split is genuinely ambiguous on the two cards that combine it
+
+The passport and the licence print surname and given names as separate fields. The eID and the address card print **one combined line**, and the specimens show why that is hard:
+
+- eID: `SZÉPENÉ KISS ROZÁLIA` — a two-word married surname (`Szépéné` = wife of Szépe) plus one given name. Cut it one word early and you get `SZÉPENÉ` / `KISS ROZÁLIA`.
+- Address card: `DEBRECENI-SZATMÁRI ANDREA` — hyphenated surname, one given name.
+
+The Schemas ask for `surname` and `givenNames` separately while these two cards print one string, so something has to supply the boundary. On the identity card the **machine-readable zone does**: `SZEPENE<KISS<<ROZALIA` marks the primary/secondary split with `<<`, and a fixture whose zone is well-formed gets the split almost for free. The address card has no zone and no such backstop.
+
+Measured over 144 extractions of drawn fixtures, neither the label placement nor the holder's name made a detectable difference to the split once the zone was writable. What did matter was the zone itself: printing accented characters into it — which its alphabet does not have — cost the split on 14 of 16 draws. Label placement was blamed for that before the zone was fixed.
+
+## 7. Corrections to the sections above
+
+Found while re-reading the captures on 2026-08-05. Each replaces or sharpens a claim made earlier in this file.
+
+- **§4, licence category table.** The table lists **every EU category** — `AM A1 A2 A B1 B C1 C D1 D BE C1E CE D1E DE T K`, 17 rows — not only the ones held. Each row prints a **pictogram** beside its code in column `9.`, and a category the holder does not hold prints an **en dash `–`** in columns 10, 11 and 12. Restriction codes in column 12 are **three digits** on this specimen (`102`, `186`), not the two-digit EU harmonised codes. The `DD.MM.YY.` format with trailing dot recorded above is **correct for both** columns 10 and 11 (`12.06.95.` / `30.11.17.`).
+- **§4, the rotated legend, transcribed in full.** Two lines, rotated 90° along the right edge of the verso, reading bottom to top:
+  1. `1. Családi név 2. Utónév 3. Születési idő és hely 4a. A kiállítás időpontja 4b. A lejárat időpontja`
+  2. `4c. Kiállító hatóság 5. Az engedély száma 10. Érvényesség kezdete 11. Érvényesség vége 12. Kódok`
+
+  The per-number wording in §4's table was correct; what is new is the line break, which falls **after** `4b.`
+- **§1, the MRZ.** The eID's zone is TD1, three lines of 30, and its document code is **`I<`** — `I` padded with one filler — not `ID`. The specimen reads `I<HUN000188KE<1…`, and its name line reads `SZEPENE<KISS<<ROZALIA<<<<<<<<<` against a VIZ of `SZÉPENÉ KISS ROZÁLIA`.
+- **MRZ transliteration is settled by ICAO Doc 9303 Part 3 §6.A** for every letter Hungarian prints, each with a single recommended transliteration: `Á→A`, `É→E`, `Í→I`, `Ó→O`, `Ú→U`, and both double-acutes `Ő→O` (U+0150) and `Ű→U` (U+0170). The specimen agrees (`SZÉPENÉ`→`SZEPENE`, `ROZÁLIA`→`ROZALIA`), as does the passport in `hungarian-passport-field-layout.md` §7.4 (`ROZÁLIA`→`ROZALIA`).
+
+  **`Ö` and `Ü` are not settled.** §6.A gives `OE or O` and `UE or UXX or U`, and the choice belongs to the issuing State. No specimen captured here carries either letter in a name, and [#48](https://github.com/akosgintl/document-intelligence/issues/48)'s statute pass found no rule. `fixtures/identifiers.py` refuses them rather than guessing; a fixture should choose a holder name without them.
+- **The passport MRZ transcription in `hungarian-passport-field-layout.md` §7.4 is one character too long.** Its line 1 is transcribed at 45 characters where TD3 has 44 — one filler too many in the trailing run. Worth knowing generally: a trailing run of `<` is where MRZ transcription fails, for a human reading a specimen as much as for a model reading a fixture.
+- **The driving licence carries no address.** Confirmed on `HUN-FO-04001`'s verso, which holds only `13.`, `14. Államp:`, `Sz.neve:` and the category table. This agrees with [#48](https://github.com/akosgintl/document-intelligence/issues/48)'s reading of 326/2011 Annex 5 against the single Commission summary page `hungarian_driving_licence/v1.json`'s nullable `address` rests on. Whether the Schema should keep the field is a question for [#33](https://github.com/akosgintl/document-intelligence/issues/33), not for a fixture.
 
 ## Date formats — the single most surprising result
 
