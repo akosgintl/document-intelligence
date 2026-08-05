@@ -39,7 +39,7 @@ jobs:
           # TODO: Replace with your preferred inference provider and model
           OPENWIKI_PROVIDER: openai
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENWIKI_MODEL_ID: openai/gpt-5.6-terra
+          OPENWIKI_MODEL_ID: gpt-5.5
           # Required for the LangSmith connector's code-mode pull to authenticate.
           # For extra workspaces, add OPENWIKI_LANGSMITH_API_KEY_2, _3, ... as repo
           # secrets and env entries here.
