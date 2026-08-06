@@ -18,12 +18,15 @@ It is deliberately built the way [#48](https://github.com/akosgintl/document-int
 | Kulcs-Soft `Számla (Minta)` | direct PDF, read with `pdftotext -layout` so column geometry survives | undated, invoice data 2008 |
 | MEKH/MVM `Villamos energia részszámla` specimen | direct PDF, `pdftotext -layout` | invoice data 2023 |
 | Mü-Gu Kft. `MINTA SZÁMLA` supplier template | direct PDF, `pdftotext -layout` | undated |
+| NetSoft Informatika Kft. (`okosugyvitel.hu`) bilingual HU/DE sample invoice | direct PDF, fetched and rendered/viewed directly | undated |
+| Billingo (`billingo.hu`) cash-invoice marketing infographic | direct image fetch, viewed | undated |
 
 **The ceiling, stated plainly:**
 
-- **Four specimens is a small sample, and none of the four is from Hungary's two dominant invoicing platforms.** szamlazz.hu and billingo.hu between them issue a large share of Hungarian invoices. Neither publishes a rendered full-page sample this research could fetch — szamlazz.hu's user manual is prose and screenshots of the *entry form*, not of the output; billingo.hu's template pages returned 404/410. So the caption frequencies below are directional, not a survey.
+- **Four real invoice specimens is a small sample, and none of the four is from Hungary's two dominant invoicing platforms.** szamlazz.hu and billingo.hu between them issue a large share of Hungarian invoices. Neither publishes a rendered full-page sample this research could fetch — szamlazz.hu's user manual is prose and screenshots of the *entry form*, not of the output; billingo.hu's template pages returned 404/410, and the one Billingo artefact reached is a marketing infographic drawn with placeholder squiggles rather than real text, cited below only for block order, never for caption wording. So the caption frequencies below are directional, not a survey.
 - **One of the four specimens is a legally distinct sub-format.** The MVM specimen is a public-utility invoice, whose layout is prescribed by its own statute (§1.8). It is excellent evidence that a Hungarian invoice *can* look like a real document, and terrible evidence for what a general commercial invoice looks like. It is quoted below for structure and captions, never as a model to copy.
 - **One of the four is not an issued invoice at all.** Mü-Gu's `MINTA SZÁMLA` is a "how to invoice us" instruction sheet sent to suppliers, with fill-in ellipses and parenthetical instructions in place of values. Its *block structure* is real evidence of what a buyer expects to receive; its typography is not.
+- **NetSoft's is the strongest of the four.** A genuine bilingual HU/DE software-generated sample, footer-stamped `A bizonylat megfelel a 23/2014 NGM rendeletnek.` — a live, current instance of the compliance-citation practice discussed in §5, and the only specimen here that is neither a special sub-format nor a non-issued brief.
 - **The Accounting Act's §167 could not be fetched as primary text.** njt's consolidated page for 2000. évi C. tv. truncated before it in every fetch attempted. §1.7 rests on a near-verbatim secondary reproduction and is bucketed accordingly.
 
 ---
@@ -199,21 +202,21 @@ Reading order, top to bottom. Every block is marked with how well the four speci
 
 | # | Block | Corroboration |
 |---|---|---|
-| 1 | **Title + issuer identity band.** The word `SZÁMLA` set large, plus the issuer's logo or name. | 3 of 3 commercial specimens print a title. Title/logo *placement* varies: Kulcs-Soft sets the title top-left with the trading name in the seller box; MVM leads with the invoice type and puts the logo top-right; Mü-Gu centres `SZÁMLA` alone. |
-| 2 | **Invoice number**, near the title and usually flush right. | Kulcs-Soft prints `Sorszám 6/2008` right-aligned on the title line. MVM prints `Számla sorszáma:` inside the top-right identity stack. Mü-Gu prints it as the first row of a metadata list. **Position varies; proximity to the title does not.** |
-| 3 | **Seller box and buyer box, side by side.** Two columns of the same band, seller left, buyer right. | 2 of 2 specimens that draw party boxes at all (Kulcs-Soft `Szállító`/`Vevő`; Mü-Gu `eladó:`/`vevő:`) put them side by side, seller left. This is the single best-corroborated structural claim in this file and the sharpest departure from the current fixture. |
-| 4 | **Metadata band** — payment method, the dates, currency. | Present in all three commercial specimens, but **its position relative to the party boxes flips**: Kulcs-Soft puts it *below* the boxes as a four-column strip; Mü-Gu puts it *above* them as a stacked list. Treat the ordering of blocks 3 and 4 as a free choice. |
-| 5 | **Line-item table.** One row per item, description first, amounts right-aligned. | 3 of 3. A description column, a quantity, a unit price and a net amount appear in every one. |
+| 1 | **Title + issuer identity band.** The word `SZÁMLA` set large, plus the issuer's logo or name. | 4 of 4 specimens print a title. Title/logo *placement* varies: Kulcs-Soft sets the title top-left with the trading name in the seller box; MVM leads with the invoice type and puts the logo top-right; Mü-Gu centres `SZÁMLA` alone; NetSoft centres `Számla / Rechnung` below a separate header band (logo top-left, contact details and adószám top-right). |
+| 2 | **Invoice number**, near the title and usually flush right. | Kulcs-Soft prints `Sorszám 6/2008` right-aligned on the title line. MVM prints `Számla sorszáma:` inside the top-right identity stack. Mü-Gu prints it as the first row of a metadata list. NetSoft prints `Bizonylat sorszáma/Laufnummer:` right-aligned directly beneath the title. **Position varies; proximity to the title does not.** |
+| 3 | **Seller box and buyer box, side by side.** Two columns of the same band, seller left, buyer right. | 3 of 3 specimens that draw party boxes at all (Kulcs-Soft `Szállító`/`Vevő`; Mü-Gu `eladó:`/`vevő:`; NetSoft `Szállító / Lieferant`/`Vevő / Kunde`) put them side by side, seller left. Billingo's schematic marketing infographic shows the same issuer-left/buyer-right split, weak corroboration only since it carries no real caption text. This is the single best-corroborated structural claim in this file and the sharpest departure from the current fixture. |
+| 4 | **Metadata band** — payment method, the dates, currency. | Present in all four specimens, but **its position relative to the party boxes flips**: Kulcs-Soft and NetSoft both put it *below* the boxes (Kulcs-Soft a four-column strip, NetSoft a five-column strip: `Fizetési mód / Elszámolási időszak / Teljesítés / Kelte / Fizetési határidő`); Mü-Gu puts it *above* them as a stacked list. Treat the ordering of blocks 3 and 4 as a free choice, now leaning "below" 2:1. |
+| 5 | **Line-item table.** One row per item, description first, amounts right-aligned. | 4 of 4. A description column, a quantity, a unit price and a net amount appear in every one. NetSoft folds the unit of measure into the quantity cell (`3,00 óra`) instead of giving it its own column — a fourth attested treatment, see §3.3. |
 | 5a | *Free-text sub-description under an item row*, in smaller type. | Kulcs-Soft (twice), MVM (as asterisked footnotes). Optional, but it is what makes an item table look real rather than generated. |
 | 6 | **Per-block subtotal rows inside the item table**, before the summary. | MVM (`Energiadíj összesen`, `Rendszerhasználati díjak összesen`, `Nettó számlaérték összesen`). A utility-invoice trait; do not generalise. |
-| 7 | **VAT summary table (`ÁFA összesítő`), visually separate from the item table.** One row per rate, plus a total row. | 2 of 2 specimens that carry amounts at all. Both set it as a distinct bordered table, right-aligned on the page, narrower than the item table. **Only MVM captions it**; Kulcs-Soft's is a bare table with column headers and no heading. |
-| 8 | **Totals block** — the single bold payable figure. | 3 of 3. Kulcs-Soft and MVM both make it the last figure before the footer. |
-| 8a | *The amount spelled out in words*, immediately under the total. | Kulcs-Soft: `azaz Kilencvenhatezer-háromszázhatvan Forint.` A carry-over from cheque-era paper practice with no legal basis; still printed. Optional. |
-| 9 | **Footer** — software attribution, legal citation, courtesy line, payment-terms note. | Kulcs-Soft prints all four. Mü-Gu's footer is procedural instruction (it is a supplier brief, not an issued invoice). Content is entirely issuer-chosen. |
+| 7 | **VAT summary table (`ÁFA összesítő`), visually separate from the item table.** One row per rate, plus a total row. | 3 of 4 specimens carry amounts and all three draw a distinct table. Kulcs-Soft and MVM set it right-aligned and narrower than the item table (on-page geometry not independently confirmed for NetSoft's render, see the note below). **Captioned on 2 of 3**: MVM's and NetSoft's (`Áfa összesítő / Mehrwertsteuer Zusammenfassung`); Kulcs-Soft's is a bare table with column headers and no heading. |
+| 8 | **Totals block** — the single bold payable figure. | 4 of 4. Kulcs-Soft, MVM and NetSoft all make it the last figure before the footer. |
+| 8a | *The amount spelled out in words*, immediately under the total. | Kulcs-Soft: `azaz Kilencvenhatezer-háromszázhatvan Forint.` NetSoft: `ötvenhétezer-egyszázötven Forint` under `Fizetendő végösszeg / Zu bezahlender Endbetrag: 57 150 Ft`. A carry-over from cheque-era paper practice with no legal basis; still printed on 2 of 4 specimens. Optional. |
+| 9 | **Footer** — software attribution, legal citation, courtesy line, payment-terms note. | Kulcs-Soft and NetSoft both print all four; NetSoft's legal citation is current and correct, unlike Kulcs-Soft's (§5). Mü-Gu's footer is procedural instruction (it is a supplier brief, not an issued invoice). Content is entirely issuer-chosen. |
 
 Two structural facts worth stating explicitly for the renderer:
 
-- **The item table and the VAT summary are different widths.** In both specimens that draw them, the item table spans the full text block and the summary is a narrower table pushed to the right margin, beneath it. Drawing them as two equal-width tables — as the current fixture effectively does — is the specific thing that makes the page read as generated.
+- **The item table and the VAT summary are different widths.** In the two specimens whose page geometry was confirmed (Kulcs-Soft, MVM), the item table spans the full text block and the summary is a narrower table pushed to the right margin, beneath it — NetSoft also draws a captioned summary table, but its on-page width was not independently confirmed from the fetched render. Drawing them as two equal-width tables — as the current fixture effectively does — is the specific thing that makes the page read as generated.
 - **The reverse-charge / exemption phrase is a free-standing block, not a column value.** Mü-Gu prints `FORDÍTOTT ADÓZÁS, AZ ÁFA MEGFIZETÉSÉRE A VEVŐ KÖTELEZETT` centred and emphasised between the item table and the totals. The current fixture puts `fordított adózás` in a `vatRate` cell — legitimate, and defended in `catalogue.py`, but not the only way real invoices carry the §169 n) phrase.
 
 ---
@@ -224,57 +227,58 @@ Nothing here is sourced to statute; every wording is one issuer's choice, and th
 
 ### 3.1 Metadata band
 
-| Concept | Kulcs-Soft | MVM (utility) | Mü-Gu |
-|---|---|---|---|
-| Invoice number | `Sorszám` | `Számla sorszáma:` | `Számla száma:` |
-| Issue date | `Számla kelte` | `Számla kelte` | `Számla kelte` |
-| Completion date | `Teljesítés időpontja` | `Teljesítés kelte` | `Teljesítés dátuma` |
-| Payment due date | `Esedékesség` | `Fizetési határidő:` | `Fizetési határidő:` |
-| Payment method | `Fizetési mód` | — | `Fizetési mód:` |
-| Bank account | *(in seller box)* | `Bankszámla száma:` | `Bankszámla-szám:` |
+| Concept | Kulcs-Soft | MVM (utility) | Mü-Gu | NetSoft |
+|---|---|---|---|---|
+| Invoice number | `Sorszám` | `Számla sorszáma:` | `Számla száma:` | `Bizonylat sorszáma/Laufnummer:` |
+| Issue date | `Számla kelte` | `Számla kelte` | `Számla kelte` | `Kelte` |
+| Completion date | `Teljesítés időpontja` | `Teljesítés kelte` | `Teljesítés dátuma` | `Teljesítés` |
+| Payment due date | `Esedékesség` | `Fizetési határidő:` | `Fizetési határidő:` | `Fizetési határidő` |
+| Payment method | `Fizetési mód` | — | `Fizetési mód:` | `Fizetési mód` |
+| Bank account | *(in seller box)* | `Bankszámla száma:` | `Bankszámla-szám:` | *(in seller/buyer box, `Bankszámlaszám/Bankkonto:`)* |
 
-`Számla kelte` is the one caption all three agree on. `Esedékesség` versus `Fizetési határidő` for the same date, and three different words for the completion date, are real divergence — the current fixture's `Kiállítás kelte:` matches none of the three, which is a defensible choice but worth knowing is not what any of these specimens print.
+`Számla kelte` is the caption three of four specimens agree on for the issue date; NetSoft shortens it to bare `Kelte` as a column header in its metadata table. `Esedékesség` versus `Fizetési határidő` for the same date, and now four different words across four specimens for the completion date (`Teljesítés időpontja` / `Teljesítés kelte` / `Teljesítés dátuma` / `Teljesítés`), are real divergence — the current fixture's `Kiállítás kelte:` matches none of the four, which is a defensible choice but worth knowing is not what any of these specimens print.
 
 ### 3.2 Party boxes
 
-| Role | Kulcs-Soft | MVM (utility) | Mü-Gu |
-|---|---|---|---|
-| Seller | `Szállító` | `Szolgáltató neve:` / `Címe:` / `Adószáma:` | `eladó:` |
-| Buyer | `Vevő` | `Vevő (Fizető) neve:` / `címe:` / `azonosító:` | `vevő:` |
+| Role | Kulcs-Soft | MVM (utility) | Mü-Gu | NetSoft |
+|---|---|---|---|---|
+| Seller | `Szállító` | `Szolgáltató neve:` / `Címe:` / `Adószáma:` | `eladó:` | `Szállító / Lieferant:` |
+| Buyer | `Vevő` | `Vevő (Fizető) neve:` / `címe:` / `azonosító:` | `vevő:` | `Vevő / Kunde:` |
 
-`Vevő` is unanimous for the buyer, as a bare box header or as the stem of a field caption. The seller has **three different words across three specimens** — `Szállító`, `Szolgáltató`, `eladó` — and the fixture's `Eladó:` is a fourth-in-spirit but attested variant (Mü-Gu, lowercased). A renderer must simply pick one; nothing constrains it.
+`Vevő` is unanimous across all four specimens for the buyer, as a bare box header, the stem of a field caption, or (NetSoft) the Hungarian half of a bilingual header. The seller splits `Szállító` (Kulcs-Soft, NetSoft) against `Szolgáltató` (MVM) and `eladó` (Mü-Gu, lowercased) — two of four now agree, which makes `Szállító` the better-attested choice without making it a rule. The fixture's `Eladó:` differs from the majority spelling only in capitalisation.
 
 ### 3.3 Line-item table columns
 
-| Kulcs-Soft (in printed order) | MVM (utility) | Mü-Gu |
-|---|---|---|
-| `Megnevezés` | `Tétel megnevezése` | `megnevezés és egyéb jellemzők` |
-| `VTSZ/SZJ` | `Fogyasztási időszak` | *(VTSZ inside the description cell)* |
-| `Súly` | `Mennyiség` | `ÁFA kulcsa` |
-| `Mennyiség` | `Mérték-egység` | `menny. egység` |
-| `Mee` | `Nettó egységár és mértékegysége` | `mennyiség` |
-| `Egységár` | `Nettó érték (Ft)` | `egységár` |
-| `Nettó` | `ÁFA (%)` | `nettó érték` |
-| `Áfa %` | `Bruttó érték (Ft)` | |
-| `Áfaérték` | | |
-| `Bruttó` | | |
+| Kulcs-Soft (in printed order) | MVM (utility) | Mü-Gu | NetSoft (in printed order) |
+|---|---|---|---|
+| `Megnevezés` | `Tétel megnevezése` | `megnevezés és egyéb jellemzők` | `Megnevezés` |
+| `VTSZ/SZJ` | `Fogyasztási időszak` | *(VTSZ inside the description cell)* | `Egységár` |
+| `Súly` | `Mennyiség` | `ÁFA kulcsa` | `Mennyiség` (unit folded in, e.g. `3,00 óra`) |
+| `Mennyiség` | `Mérték-egység` | `menny. egység` | `Áfa (%)` |
+| `Mee` | `Nettó egységár és mértékegysége` | `mennyiség` | `Nettó` |
+| `Egységár` | `Nettó érték (Ft)` | `egységár` | `Áfa` |
+| `Nettó` | `ÁFA (%)` | `nettó érték` | `Bruttó` |
+| `Áfa %` | `Bruttó érték (Ft)` | | |
+| `Áfaérték` | | | |
+| `Bruttó` | | | |
 
-Corroborated across all three: **description first, then quantity and unit, then unit price, then net, then VAT, then gross.** That ordering is the stable skeleton. Everything else varies — the abbreviation `Mee` for `mértékegység` is Kulcs-Soft's alone, a `VTSZ/SZJ` classification column appears on one specimen and inside the description cell on another, and `Áfaérték` versus `ÁFA (Ft)` versus no VAT-amount column at all are three attested treatments.
+Corroborated across all four: **description first, then net, then VAT, then gross**, in that relative order toward the end of the row. **The middle of the row is less stable than three specimens suggested.** Kulcs-Soft and MVM both put quantity/unit ahead of unit price, but NetSoft prints unit price (`Egységár`) *before* quantity (`Mennyiség`) — a genuine fourth-specimen contradiction of what looked like a settled sub-ordering, presented rather than resolved (see the conflicts table). Everything else varies too: the abbreviation `Mee` for `mértékegység` is Kulcs-Soft's alone, a `VTSZ/SZJ` classification column appears on one specimen and inside the description cell on another, NetSoft folds the unit of measure into the quantity cell instead of giving it a column at all, and `Áfaérték` versus `ÁFA (Ft)` versus `Áfa` versus no VAT-amount column at all are four attested treatments.
 
 ### 3.4 VAT summary and totals
 
 Kulcs-Soft's summary table, uncaptioned: `Áfa %` | `Nettó` | `ÁFA` | `Bruttó`, closing row `Összesen`.
 MVM's, captioned `ÁFA összesítő (Ft)`: `Tétel megnevezése` | `ÁFA (%)` | `Nettó érték (Ft)` | `ÁFA (Ft)` | `Bruttó érték (Ft)`, closing row `Számla összesen:`.
+NetSoft's, captioned `Áfa összesítő / Mehrwertsteuer Zusammenfassung`: `Nettó` | `Áfa` | `Bruttó`, closing row `Összesen/Insgesamt:` — the closest of the three to Kulcs-Soft's own column set, and its Hungarian half agrees in substance with MVM's caption even though the German half proves the wording is issuer-chosen, not a fixed phrase.
 
-For the payable total, three specimens give **three different captions** for the same figure:
+For the payable total, four specimens now give **two** captions rather than three different ones:
 
 | Caption | Source |
 |---|---|
-| `Fizetendő végösszeg:` | Kulcs-Soft |
+| `Fizetendő végösszeg:` | Kulcs-Soft, and NetSoft's bilingual `Fizetendő végösszeg / Zu bezahlender Endbetrag:` |
 | `Fizetendő összeg:` | MVM (printed twice — once in the page-one summary box, once as the item table's last row) |
 | `BRUTTÓ ÉRTÉK:` | Mü-Gu |
 
-The current fixture prints `Fizetendő összeg:`, which is attested. `Fizetendő végösszeg:` is equally attested. Note that neither `Áfa kulcsonkénti összesítő` nor `Áfa bontás` — plausible alternative wordings for the summary caption — was found on any specimen reached; they are **not confirmed**, which is not the same as wrong.
+`Fizetendő végösszeg:` is now the better-attested caption, 2 of 4 against MVM's 1 and Mü-Gu's 1. The current fixture prints `Fizetendő összeg:`, which is attested but no longer the majority form. Note that neither `Áfa kulcsonkénti összesítő` nor `Áfa bontás` — plausible alternative wordings for the summary caption — was found on any specimen reached; they are **not confirmed**, which is not the same as wrong.
 
 ---
 
@@ -308,14 +312,14 @@ These must still be drawn, or the page does not read as an invoice. Each is list
 | **The §169 h)/l)/n)/m)/p)/q) statutory phrases as a free-standing block** | `fordított adózás`, `önszámlázás`, `pénzforgalmi elszámolás`, the margin-scheme phrases, and an exemption's statutory reference. **Sourced as mandatory content** (Áfa tv. 169.), conditionally on the transaction. `vatRate` can carry them per line, but a page-level block is equally real and has no Field. |
 | **The amount spelled out in words** | `azaz … Forint.` — Kulcs-Soft. No legal basis, still printed. |
 | **Software attribution footer** | `Ez a számla a … rendszerével készült` — Kulcs-Soft. Compelled by nothing; near-universal on software-issued invoices, and a strong realism cue. |
-| **A legal-compliance citation in the footer** | Kulcs-Soft prints `A számla a 47/2007. (XII.29.) PM rendeletnek megfelel.` — a citation to the **pre-2014 regime**: 47/2007 was an amending decree of 24/1995. (XI. 22.) PM r., which 23/2014 NGM r. repealed from 1 July 2014. The *practice* of citing a decree in the footer is real; that specific string is stale, and a fixture copying it verbatim would be drawing a document that could not be issued today. |
+| **A legal-compliance citation in the footer** | Kulcs-Soft prints `A számla a 47/2007. (XII.29.) PM rendeletnek megfelel.` — a citation to the **pre-2014 regime**: 47/2007 was an amending decree of 24/1995. (XI. 22.) PM r., which 23/2014 NGM r. repealed from 1 July 2014. NetSoft's footer shows the same practice done correctly: `A bizonylat megfelel a 23/2014 NGM rendeletnek.`, citing the decree actually in force. The *practice* of citing a decree in the footer is real and now doubly attested; Kulcs-Soft's specific string is stale and a fixture copying it verbatim would be drawing a document that could not be issued today — NetSoft's wording is the one to follow. |
 | **Copy/original marking** | `Az eredeti bizonylat másolata, csak tájékoztatásra!` (Kulcs-Soft), `1. sz. eredeti példány` (MVM), `MIN. 3 PÉLDÁNYOS, az 1. példány a vevőé` (Mü-Gu). Three of three. No Field. |
 | **Page numbering** | `Oldalszám: 1/4` (MVM), `Oldal 1 / 2` (Mü-Gu). Needed the moment a fixture spans more than one page. |
 | **Courtesy and terms boilerplate** | `Köszönjük a vásárlást!`, late-payment interest clauses — Kulcs-Soft. |
 | **Exchange rate line** | Mü-Gu's template reserves `ÁRFOLYAM (csak devizás számla esetén kell feltüntetni)`. `nav-online-szamla-invoicedata-requirements.md` §5.1 established the rate is **not** required invoice content, and #38 deliberately gave it no Field. Confirmed here as a block issuers nonetheless reserve space for. |
 | **The forint VAT figure on a foreign-currency invoice** | **Sourced as mandatory** (Áfa tv. 172. §) and has no Field — `vatTotal` is defined as being in the invoice's own `currency`. A EUR-denominated Hungarian invoice must print a forint VAT amount that the Schema cannot hold. Worth flagging to whoever revisits the Schema; out of scope to fix here. |
 | **VTSZ / TESZOR classification codes per line** | Kulcs-Soft draws a whole column for it; §169 f) makes it the issuer's option. No nested Field. |
-| **Seller's legal-status markings** | `e.v.` for a sole trader, `kisadózó` where applicable. Reported by the parallel survey from a Billingo infographic; **not observed on any specimen this research fetched directly**, so single-sourced and second-hand. |
+| **Seller's legal-status markings** | `e.v.` for a sole trader, `kisadózó` where applicable. Reported secondhand from a different Billingo infographic than the cash-invoice one directly fetched for §2 above; **not itself observed on any specimen this research fetched directly**, so single-sourced and second-hand — do not treat as corroborated the way the cash-invoice infographic is. |
 | **Signature / stamp area** | **Sourced as not required** (Áfa tv. 177. §) and absent from all four specimens. Listed here so the renderer explicitly decides *not* to draw one. |
 | **QR code** | Looked for; **not found on any specimen reached.** Do not invent one. |
 
@@ -349,7 +353,7 @@ Three consequences, all sourced:
 
 - The item table loses its `Nettó` and `ÁFA összeg` columns and gains `ÁFA tartalom` and `Bruttó`. The committed fixture already does exactly this.
 - The `ÁFA összesítő` collapses. With no net and no VAT amount, a per-rate breakdown has only a gross column left, and issuers commonly drop the table entirely — which is what the committed fixture does, and it remains the only fixture asserting `vatSummary` null as a whole.
-- The buyer box is frequently absent. Legitimate at a retail counter, and the source of three null buyer Fields. *(Corroboration: reported second-hand from a Billingo infographic labelling the buyer block `esetleg a vevő neve és címe` — "possibly the buyer's name and address". Not directly observed by this research; single-sourced.)*
+- The buyer box is frequently absent. Legitimate at a retail counter, and the source of three null buyer Fields. *(Corroboration: reported second-hand from the same unverified Billingo infographic as §5 above, labelling the buyer block `esetleg a vevő neve és címe` — "possibly the buyer's name and address". Not directly observed by this research; single-sourced, and distinct from the cash-invoice infographic directly fetched for §2.)*
 - The totals block reduces to one line, since a net total and a VAT total cannot exist.
 
 **One correction to the committed fixture, offered rather than applied.** `_INVOICE_SIMPLIFIED` prints `Megjegyzés: Áfa tv. 176. § szerinti egyszerűsített adattartalmú számla` and its comment asserts a real one "cites Áfa tv. 176. §". Nothing in §176 requires that citation, and none of the four specimens prints anything comparable. The document *is* a §176(1)(d) invoice — its 8 140 Ft total is well under 100 EUR — but the printed citation is the fixture's own invention, not observed practice. It is harmless, and it gives the page a `Megjegyzés` block that real invoices do carry; it should just not be described as something real invoices do.
@@ -360,12 +364,13 @@ Three consequences, all sourced:
 
 | # | Subject | One source says | Another says | Note |
 |---|---|---|---|---|
-| 1 | Position of the metadata band | Kulcs-Soft: below the party boxes | Mü-Gu: above them | Both real. The renderer must choose; nothing constrains it. |
-| 2 | Caption for the payment due date | Kulcs-Soft: `Esedékesség` | MVM, Mü-Gu: `Fizetési határidő` | Same date, different word. |
-| 3 | Caption for the seller box | `Szállító` / `Szolgáltató` / `eladó` | — | Three specimens, three words. `Vevő` by contrast is unanimous. |
-| 4 | Whether the VAT summary is captioned | MVM: `ÁFA összesítő (Ft)` | Kulcs-Soft: no heading at all | The block is visually distinct either way. `catalogue.py` already captions the happy-path one and argues for it; that argument survives, as a choice rather than a requirement. |
+| 1 | Position of the metadata band | Kulcs-Soft, NetSoft: below the party boxes | Mü-Gu: above them | Both real, now 2:1. The renderer must still choose; nothing constrains it. |
+| 2 | Caption for the payment due date | Kulcs-Soft: `Esedékesség` | MVM, Mü-Gu, NetSoft: `Fizetési határidő` | Same date, different word — now 3:1. |
+| 3 | Caption for the seller box | Kulcs-Soft, NetSoft: `Szállító` | MVM: `Szolgáltató`; Mü-Gu: `eladó` | Four specimens, three words, `Szállító` now the plurality. `Vevő` by contrast is unanimous across all four. |
+| 4 | Whether the VAT summary is captioned | MVM: `ÁFA összesítő (Ft)`; NetSoft: `Áfa összesítő / Mehrwertsteuer Zusammenfassung` | Kulcs-Soft: no heading at all | Captioned on 2 of 3 that carry one. `catalogue.py` already captions the happy-path one and argues for it; that argument is now better supported, though still a choice rather than a requirement. |
 | 5 | Simplified-invoice threshold | Áfa tv. 176. § (1) d) consolidated: **100 EUR** equivalent | secondary write-ups still in circulation: 25 000 Ft | The consolidated primary text governs. |
-| 6 | Footer legal citation | Kulcs-Soft prints compliance with `47/2007. (XII.29.) PM rendelet` | That decree amended 24/1995. (XI. 22.) PM r., which 23/2014 NGM r. repealed from 2014-07-01 | The *practice* is real; the *string* is stale. Do not copy it verbatim. |
+| 6 | Footer legal citation | Kulcs-Soft prints compliance with `47/2007. (XII.29.) PM rendelet` | NetSoft prints compliance with `23/2014 NGM rendelet` — the decree actually in force | That decree amended 24/1995. (XI. 22.) PM r., which 23/2014 NGM r. repealed from 2014-07-01. The *practice* is real and now doubly attested; Kulcs-Soft's *string* is stale, NetSoft's is current. Follow NetSoft's wording, not Kulcs-Soft's. |
+| 7 | Line-item column order: quantity vs. unit price | Kulcs-Soft, MVM: quantity/unit before unit price | NetSoft: unit price (`Egységár`) before quantity (`Mennyiség`) | What looked like a stable sub-ordering on three specimens breaks on the fourth. Description-first and net/VAT/gross-last both survive; the middle does not. |
 
 ---
 
@@ -375,7 +380,7 @@ The honest residue — what the renderer must decide about explicitly, because n
 
 1. **Every caption on a general commercial invoice.** Exactly as #48 found for identity documents: Hungarian statute prescribes data items and, occasionally, a rendering rule, and never caption wording. The specimens are the only source, and they disagree with one another on the seller box, the due date and the completion date.
 2. **Every block's position.** Confirmed as a sourced absence for the ÁFA Act and 23/2014 NGM r. (§1.9), which is a stronger statement than "not found" — both were fetched in full and searched.
-3. **Whether the seller box goes left or right.** Two specimens put the seller left; two is not a survey. Nothing legal bears on it.
+3. **Whether the seller box goes left or right.** Three specimens put the seller left (Kulcs-Soft, Mü-Gu, NetSoft); three is a trend, not a survey. Nothing legal bears on it.
 4. **Date formats.** Kulcs-Soft prints `2008.06.09.`, MVM prints `2023.08.21.`, the committed fixture prints `2026.07.01` without the trailing dot. No instrument governs the format on an invoice, unlike the driving licence's verso.
-5. **The two dominant issuers' actual output.** szamlazz.hu and billingo.hu could not be made to yield a rendered full-page sample. Until one is obtained, every frequency claim here rests on three commercial specimens, one of which is a supplier brief rather than an issued invoice. **This is the gap a future pass should close first**, and #65 already contemplates a provider-issued PDF as one of the two ways the invoice half can end.
+5. **The two dominant issuers' actual output.** szamlazz.hu and billingo.hu could not be made to yield a rendered full-page sample — billingo.hu's only reachable artefact is a schematic marketing infographic, cited above for block order only, never for caption wording. Every frequency claim here now rests on **four** invoice specimens rather than three — adding NetSoft's genuine bilingual sample strengthened several corroboration counts (the seller/buyer side-by-side claim, the `Fizetendő végösszeg` caption) and surfaced one real contradiction (conflict 7) — but none of the four comes from either dominant platform, and one (Mü-Gu) remains a supplier brief rather than an issued invoice. **Closing that gap with an actual szamlazz.hu or billingo.hu render is still the first thing a future pass should do**, and #65 already contemplates a provider-issued PDF as one of the two ways the invoice half can end.
 6. **Typography.** No general invoice statute names a typeface or a point size. The one Hungarian instrument that does — 2013. évi CLXXXVIII. tv. 8. § — governs a sub-format this fixture must not imitate, and #65 already records the typeface question as unresolved pending the redraw prototype.
