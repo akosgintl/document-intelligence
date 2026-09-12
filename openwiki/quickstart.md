@@ -1,7 +1,7 @@
 ---
 type: wiki entrypoint
 title: Document Intelligence Wiki
-description: A source-grounded guide to the document intelligence API, worker pipeline, schemas, data, and operations.
+description: A source-grounded guide to the document intelligence API, worker pipeline, schemas, data, quality workflows, and operations.
 tags: [documentation, navigation]
 ---
 
@@ -18,7 +18,8 @@ This repository is a schema-based document classification and extraction system.
 - [Model provider adapter and retry policy](model-provider/adapter-and-retries.md) — vendor-neutral protocol, Anthropic tools, retries, and model-call recording.
 - [Persistence, storage, and migrations](data/persistence.md) — durable entities, object keys, relationships, and migration change surface.
 - [Schema registry and document type authoring](schemas/registry-and-authoring.md) — schema directory contract, thresholds/versions, and current document types.
-- [Synthetic fixtures and golden evaluation](quality/fixtures-and-evaluation.md) — co-derived test artifacts and paid real-provider accuracy reporting.
+- [Synthetic fixtures and golden evaluation](quality/fixtures-and-evaluation.md) — co-derived test artifacts, privacy-preserving identifier helpers, renderer fidelity limits, and paid real-provider accuracy reporting.
+- [Manual reference capture](quality/manual-reference-capture.md) — the human Számlázz.hu demófiók wizard for collecting invoice layout evidence outside the repository.
 - [Runtime configuration and validation](operations/runtime-and-validation.md) — Compose, settings, health, secrets boundaries, and test commands.
 - [OpenWiki maintenance workflow](operations/openwiki-maintenance.md) — scheduled/manual documentation update automation, provider settings, workflow guard, and PR publication.
 
@@ -33,7 +34,8 @@ This repository is a schema-based document classification and extraction system.
 | Integrate a model vendor, tool schema, retry policy, or call recording | [Model provider](model-provider/adapter-and-retries.md) | `src/document_intelligence/model_provider/`, `src/document_intelligence/worker.py` | `ModelProvider`, `AnthropicModelProvider`, `RetryingModelProvider`, `TransientProviderError`, `PersistingModelCallRecorder` | `tests/test_model_provider_contract.py`, `tests/test_model_provider_anthropic.py`, `tests/test_transient_retry.py`, `tests/test_observability.py` | `uv run pytest tests/test_model_provider_contract.py tests/test_model_provider_anthropic.py tests/test_transient_retry.py tests/test_observability.py` |
 | Add a document type or evolve an extraction schema | [Schema registry](schemas/registry-and-authoring.md) | `schemas/`, `src/document_intelligence/schema_registry/registry.py` | `SchemaRegistry`, `RegisteredDocumentType`, `DocumentTypeSchema`, `confidence_threshold` | `tests/test_schema_registry.py`, `tests/test_model_provider_anthropic.py`, `tests/test_extraction_validation.py` | `uv run pytest tests/test_schema_registry.py tests/test_model_provider_anthropic.py tests/test_extraction_validation.py` |
 | Change persistent data, object keys, or migrations | [Persistence](data/persistence.md) | `src/document_intelligence/db/models.py`, `src/document_intelligence/db/session.py`, `migrations/`, `src/document_intelligence/storage.py` | `Submission`, `Job`, `Document`, `Page`, `Field`, `ModelCall`, `Base.metadata` | lifecycle tests plus migration smoke | `uv run alembic upgrade head` |
-| Add fixture/golden example or investigate accuracy | [Fixtures and evaluation](quality/fixtures-and-evaluation.md) | `fixtures/catalogue.py`, `fixtures/generate.py`, `eval/run_eval.py` | `EXAMPLES`, `Example`, `Submission`, `Row`, `Table`, `Mrz` | `tests/test_fixture_renderer.py`; paid eval is conditional | `uv run pytest tests/test_fixture_renderer.py` |
+| Add fixture/golden example, MRZ identifier, or investigate accuracy | [Fixtures and evaluation](quality/fixtures-and-evaluation.md) | `fixtures/catalogue.py`, `fixtures/generate.py`, `fixtures/identifiers.py`, `fixtures/render.py`, `eval/run_eval.py` | `EXAMPLES`, `Example`, `Submission`, `Row`, `Table`, `Mrz`, `AmbiguousTransliteration`, `FixtureDoesNotFit` | `tests/test_fixture_renderer.py`; paid eval is conditional | `uv run pytest tests/test_fixture_renderer.py` |
+| Collect a Számlázz.hu demo invoice PDF as external layout evidence | [Manual reference capture](quality/manual-reference-capture.md) | `scripts/issue_demo_invoice_wizard.sh` | `ENV_FILE`, `TOTAL_STAGES`, issuer gate, PDF gate, `PDF_PATH`, `SURPRISES` | Bash syntax check; manual browser run is conditional | `bash -n scripts/issue_demo_invoice_wizard.sh` |
 | Start/debug deployment dependencies or settings | [Runtime and validation](operations/runtime-and-validation.md) | `docker-compose.yml`, `src/document_intelligence/config.py`, `src/document_intelligence/health.py`, `src/document_intelligence/worker.py` | `Settings`, `get_settings`, `run_health_checks`, `WorkerSettings` | dependency health plus relevant focused suite | `curl http://localhost:8000/health` |
 | Change scheduled OpenWiki documentation automation | [OpenWiki maintenance workflow](operations/openwiki-maintenance.md) | `.github/workflows/openwiki-update.yml` | `OpenWiki Update`, `OPENWIKI_PROVIDER`, `OPENAI_API_KEY`, `OPENWIKI_MODEL_ID`, `Restore protected workflow file` | GitHub Actions workflow run | `gh workflow run openwiki-update.yml` |
 
