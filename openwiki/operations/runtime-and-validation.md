@@ -51,6 +51,7 @@ The worker schedules `reconcile_stuck_jobs` at startup and by cron. It closes it
 | Provider contract/retry/records | `uv run pytest tests/test_model_provider_contract.py tests/test_transient_retry.py tests/test_observability.py` |
 | Registry/schema/fixture drift | `uv run pytest tests/test_schema_registry.py tests/test_fixture_renderer.py` |
 | Manual complete-stack smoke | `uv run python scripts/manual_test.py` |
+| Manual reference invoice research | `bash scripts/issue_demo_invoice_wizard.sh` |
 | Paid real-provider accuracy | `uv run python eval/run_eval.py` |
 
-`tests/conftest.py` flushes the shared Redis database and truncates PostgreSQL tables after tests; run against the established local development infrastructure, not an environment with data you need to preserve.
+`tests/conftest.py` flushes the shared Redis database and truncates PostgreSQL tables after tests; run against the established local development infrastructure, not an environment with data you need to preserve. The Számlázz.hu wizard is a browser-driven reference-artifact workflow for [fixtures and evaluation](../quality/fixtures-and-evaluation.md#manual-reference-artifact-workflow), not a service health or pipeline validation check.
