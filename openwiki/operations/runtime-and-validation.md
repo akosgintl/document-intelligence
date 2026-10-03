@@ -41,6 +41,10 @@ Start the complete development stack with `docker compose up -d`; `/health` conc
 
 The worker schedules `reconcile_stuck_jobs` at startup and by cron. It closes its S3 context stack on shutdown. Recovery semantics are in [review and recovery](../pipeline/review-and-recovery.md).
 
+## Manual reference scripts
+
+`scripts/manual_test.py` is the local API smoke path: it submits a file to `POST /v1/submissions` and polls the job result against a running stack. `scripts/issue_demo_invoice_wizard.sh` is different: it is an operator-guided third-party Számlázz.hu demófiók procedure used by [fixture and evaluation quality work](../quality/fixtures-and-evaluation.md). The wizard writes observations and any downloaded reference PDF outside the repository, so do not treat it as app configuration, a generated fixture, or a deterministic test input.
+
 ## Validation routing
 
 | Intent | Focused command |
@@ -51,6 +55,7 @@ The worker schedules `reconcile_stuck_jobs` at startup and by cron. It closes it
 | Provider contract/retry/records | `uv run pytest tests/test_model_provider_contract.py tests/test_transient_retry.py tests/test_observability.py` |
 | Registry/schema/fixture drift | `uv run pytest tests/test_schema_registry.py tests/test_fixture_renderer.py` |
 | Manual complete-stack smoke | `uv run python scripts/manual_test.py` |
+| Manual external invoice reference wizard syntax | `bash -n scripts/issue_demo_invoice_wizard.sh` |
 | Paid real-provider accuracy | `uv run python eval/run_eval.py` |
 
 `tests/conftest.py` flushes the shared Redis database and truncates PostgreSQL tables after tests; run against the established local development infrastructure, not an environment with data you need to preserve.
