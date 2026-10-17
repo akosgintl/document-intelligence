@@ -46,6 +46,8 @@ The sequence reflects `retry.py`, provider-side `report_model_call`, and the rec
 
 `recording.py` holds a context-local `ModelCallRecorder`; `process_job` and review-triggered extraction bind `PersistingModelCallRecorder(job_id)` for their duration. Successful adapters report prompt, serialized response, tokens, and latency. The retry wrapper records failed transient attempts because the inner provider did not produce a normal record. `observability.py` commits each `ModelCall` in an independent session so it remains inspectable if later document persistence fails; `job_token_usage` sums nullable tokens as zero.
 
+The paid golden harness documented in [synthetic fixtures and golden evaluation](../quality/fixtures-and-evaluation.md) deliberately uses `RetryingModelProvider(AnthropicModelProvider)` instead of `FakeModelProvider`, so provider-output changes need both deterministic provider tests and, when accuracy is the question, an explicitly billed `eval/run_eval.py` run.
+
 To add a provider: implement all protocol methods and output exact value objects; map retryable vendor errors to `TransientProviderError`; call `report_model_call` on each successful vendor attempt with available usage; wire the wrapper/provider in `worker.startup`; and add contract tests alongside `test_model_provider_contract.py`. `FakeModelProvider` is the deterministic test double and supports scripted results, transient errors, and per-document-type extraction for concurrent groups.
 
 Focused checks: `uv run pytest tests/test_model_provider_contract.py tests/test_model_provider_anthropic.py tests/test_transient_retry.py tests/test_observability.py`.
